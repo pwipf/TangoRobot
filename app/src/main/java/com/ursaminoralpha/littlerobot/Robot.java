@@ -25,7 +25,7 @@ public class Robot{
     };
 
     static ArrayList<Target> mTargetList=new ArrayList<>();
-    static int mCurrentTarget=0;
+    private static int mCurrentTarget=0;
     static boolean mUseTargetRotation=true;
     static boolean mOnTarget=false;
     static boolean mOnTargetRot=false;
@@ -235,6 +235,7 @@ public class Robot{
         switch(m){ // to mode
             case STOP:
                 sendForcedCommand(Commands.STOP);
+                mainAct.setSerialTitleText("Stopped");
                 break;
             case GOTOTARGET:
                 mOnTarget=false;
@@ -279,7 +280,7 @@ public class Robot{
                 if(toDist<mSettings.threshDistBig){ //on target don't move
                     if(mCurrentTarget==mTargetList.size() - 1){ // on last target
                         if(mUseTargetRotation && !mOnTargetRot)
-                            changeDirection(mTargetList.get(mCurrentTarget - 1).rot, Commands.STOP);
+                            changeDirection(mTargetList.get(mCurrentTarget).rot, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
                             sendCommand(Commands.BEEPLOWHI);
                             changeMode(Modes.STOP);

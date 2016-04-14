@@ -367,7 +367,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     //make some changes based on status code
                     if(sc==TangoPoseData.POSE_INVALID){
                         if(mLocalized){
-                            Robot.changeMode(Robot.Modes.SEARCHLOC);
+                            //Robot.changeMode(Robot.Modes.SEARCHLOC);
                             Robot.sendCommand(Commands.BEEPHILOW);
                             mLocalized=false;
                         }
@@ -562,7 +562,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         SharedPreferences pref= this.getSharedPreferences("Prefs", Activity.MODE_PRIVATE);
         Robot.mSettings.threshDistBig=pref.getFloat("ThreshDistBig", .3f);
         Robot.mSettings.threshDistSmall=pref.getFloat("ThreshDistSmall", .2f);
-        Robot.mSettings.threshAngleSmall=pref.getFloat("ThreshAngleBig", .4f);
+        Robot.mSettings.threshAngleBig=pref.getFloat("ThreshAngleBig", .4f);
         Robot.mSettings.threshAngleSmall=pref.getFloat("ThreshAngleSmall",.3f);
         Robot.mSettings.updateInterval=pref.getFloat("UpdateRate",100.0f);
     }
