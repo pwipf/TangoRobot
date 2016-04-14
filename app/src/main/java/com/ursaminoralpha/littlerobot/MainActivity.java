@@ -1,5 +1,7 @@
 package com.ursaminoralpha.littlerobot;
 
+// CS 4something Robotics with Hunter
+
 import com.google.atap.tangoservice.Tango;
 import com.google.atap.tangoservice.Tango.OnTangoUpdateListener;
 import com.google.atap.tangoservice.TangoAreaDescriptionMetaData;
