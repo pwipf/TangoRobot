@@ -1,6 +1,5 @@
 package com.ursaminoralpha.littlerobot;
 
-import android.speech.tts.TextToSpeech;
 
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 
@@ -10,9 +9,6 @@ import java.util.Timer;
 
 import static com.ursaminoralpha.littlerobot.MathUtil.makeAngleInProperRange;
 
-/**
- * Created by Magpie on 4/14/2016.
- */
 public class Robot{
 
     static Commands mMovingState=Commands.STOP;
@@ -271,14 +267,17 @@ public class Robot{
     // logic to drive toward target
     private static void goToTarget(double toDist){
         try{
-            if(mTargetList.size()==0){
+            //check for errors, just in case, shouldn't be "going to target" in this case
+            if(mTargetList.size()==0 || mCurrentTarget>=mTargetList.size()){
                 changeMode(Modes.STOP);
                 return;
             }
 
+            //On a target, or was, need to go to next target, or turn to proper rotation
+            //if last target.  First check if the distance is too large and we are NOT on target
             if(mOnTarget){
                 if(toDist<mSettings.threshDistBig){ //on target don't move
-                    if(mCurrentTarget>=mTargetList.size() - 1){ // on last target
+                    if(mCurrentTarget==mTargetList.size() - 1){ // on last target
                         if(mUseTargetRotation && !mOnTargetRot)
                             changeDirection(mTargetList.get(mCurrentTarget - 1).rot, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
@@ -287,9 +286,9 @@ public class Robot{
                             mainAct.dump("At Final Target");
                             mainAct.setSerialTitleText("At Target " + mCurrentTarget + " (End)");
                             mainAct.speak("engaging final target");
-
                         }
                         return;//don't do anything else
+
                     } else{ // more targets to go
                         mainAct.dump("Switched to Target " + mCurrentTarget);
                         mainAct.setSerialTitleText("Going to Target " + mCurrentTarget + "...");
@@ -298,7 +297,6 @@ public class Robot{
                         mOnTarget=false;
                         mOnTargetRot=false;
                         mainAct.speak("going to next target");
-
                         return;
                     }
                 } else{// not on target
@@ -307,21 +305,21 @@ public class Robot{
                 }
             }
 
-            if(toDist<mSettings.threshDistSmall){ //on target stop
+            //at this point maybe we got close enough to the target, set the flag and return
+            if(toDist<mSettings.threshDistSmall){ //on target stop (next update will start going to next target)
                 sendCommand(Commands.STOP);
                 mOnTarget=true;
                 mOnTargetRot=false;
                 return;
-//            if(mUseTargetRotation)
-//                changeDirection(mTargetList.get(mCurrentTarget).rot, Commands.STOP);
-//            return;
             }
 
-            // need to get closer
+            //at this point still need to get closer.
+            //strangely, changeDirection() works on this.
             double toAngle=Math.atan2(mToTarget.y, mToTarget.x);
             changeDirection(toAngle, Commands.FORWARD);
-        }catch(final Exception e){
-            mainAct.dump(e.getMessage());
+
+        } catch(Exception e){
+            mainAct.dump("goToTarget() exception: " + e.getMessage());
         }
     }
 
@@ -332,29 +330,29 @@ public class Robot{
     private static void changeDirection(double targetDir, Commands afterCommand){
         double turnAngle=makeAngleInProperRange(targetDir - mYRot);
         double mag=Math.abs(turnAngle);
-        boolean left=turnAngle>0;
+        boolean needToTurnLeft=turnAngle>0; //need to turn left
         switch(mMovingState){
             case STOP:
             case FORWARD:
                 if(mag>mSettings.threshAngleBig){//need to change
                     mOnTargetRot=false;
-                    sendCommand(left? Commands.SPINLEFT : Commands.SPINRIGHT);
+                    sendCommand(needToTurnLeft? Commands.SPINLEFT : Commands.SPINRIGHT);
                 }else{
                     mOnTargetRot=true;
                     sendCommand(afterCommand);
                 }
                 break;
             case SPINRIGHT:
-                if(mag<mSettings.threshAngleSmall || left){
+                if(mag<mSettings.threshAngleSmall || needToTurnLeft){
                     sendCommand(afterCommand);
-                    if(!left)
+                    if(!needToTurnLeft)
                         mOnTargetRot=true;
                 }
                 break;
             case SPINLEFT:
-                if(mag<mSettings.threshAngleSmall || !left){
+                if(mag<mSettings.threshAngleSmall || !needToTurnLeft){
                     sendCommand(afterCommand);
-                    if(left)
+                    if(needToTurnLeft)
                         mOnTargetRot=true;
                 }
                 break;

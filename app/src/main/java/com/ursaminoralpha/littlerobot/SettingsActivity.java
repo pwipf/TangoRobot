@@ -4,16 +4,10 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.Parcelable;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
-import android.support.design.widget.TextInputEditText;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.NumberPicker;
-import android.widget.TextView;
 
 public class SettingsActivity extends AppCompatActivity implements View.OnClickListener{
 
@@ -44,31 +38,6 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
         mAngleSmall=(EditText) findViewById(R.id.inputAngleSmall);
         mUpdateInterval=(EditText) findViewById(R.id.inputUpdate);
         setValues();
-
-//        NumberPicker numberPicker = (NumberPicker) findViewById(R.id.pickDistBig);
-//        numberPicker.setValue(10);
-//        numberPicker.setMaxValue(100);
-//        numberPicker.setMinValue(0);
-//        numberPicker.setWrapSelectorWheel(true);
-//        numberPicker.setOnValueChangedListener( new NumberPicker.
-//                OnValueChangeListener() {
-//            @Override
-//            public void onValueChange(NumberPicker picker, int
-//                    oldVal, int newVal) {
-//                mCurrent.threshDistBig=newVal;
-//            }
-//        });
-
-
-//        FloatingActionButton fab=(FloatingActionButton)findViewById(R.id.fab);
-//        fab.setOnClickListener(new View.OnClickListener(){
-//            @Override
-//            public void onClick(View view){
-//                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                        .setAction("Action", null).show();
-//            }
-//        });
-//        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
     }
 
     @Override
@@ -110,5 +79,4 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
         editor.putFloat("UpdateRate",mCurrent.updateInterval);
         editor.commit();
     }
-
 }

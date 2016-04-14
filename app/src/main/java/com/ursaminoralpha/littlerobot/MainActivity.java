@@ -46,25 +46,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // ADF FILE NAME TO LOAD
     String mADFName="littleRobotView";
 
+    // remote control server
     RemoteServer mRemoteServer;
-
-    // TARGET LOCATION (relative to ADF origin) (It is the origin, ADF was started recording
-    // from the target location)
-
-
-    //Vec3 mTargetLoc=new Vec3(0, 0, 0);
-    //double mTargetRot=0;
-
-     //read from android preferences, which have defaults, see readPrefs()
-
-    // commands that can be sent over serial to intellibrain
-
 
     //UI Stuff
     TextView mSerialTitle;
     TextView mTangoTitle;
     TextView mDumpTextView;
     TextView mTranslationTextView, mRotationTextView, mStatusTextView, mDirToTextView;
+    ScrollView mDumpScroll;
 
     //USB Serial Stuff
     UsbManager mUsbManager;
@@ -82,17 +72,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private double mTimeToNextUpdate=0;//mSettings.updateInterval;
     boolean adfFound=false;
 
-    // Math stuff
-
     // various flags
     boolean mLocalized=false;
 
     TextToSpeech ttobj;
 
     Robot mRobot;
-
-    ScrollView mDumpScroll;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState){

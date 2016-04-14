@@ -1,8 +1,5 @@
 package com.ursaminoralpha.littlerobot;
 
-/**
- * Created by Magpie on 4/14/2016.
- */
 public class MathUtil{
     // Math and vector stuff
     // This one makes sure an angle is between PI and -PI. Probably not terribly efficient.
