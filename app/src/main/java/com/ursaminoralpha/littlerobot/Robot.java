@@ -34,6 +34,7 @@ public class Robot{
     static double mYRot=0;
     public static Settings mSettings=new Settings();
     public static UsbSerialPort mPort;
+    public static boolean mLocalized=false;
 
     public enum Commands{
         FORWARD("FORWARD"), SPINRIGHT("SPINRIGHT"), SPINLEFT("SPINLEFT"),
@@ -69,6 +70,7 @@ public class Robot{
     //constructor
     Robot(MainActivity mainAct){
         this.mainAct=mainAct;
+
     }
 
 

@@ -186,6 +186,20 @@
             android:layout_alignParentRight="true"
             android:layout_above="@+id/buttonClose"
             android:layout_marginBottom="30dp"/>
+        <Button
+            android:id="@+id/buttonLearnADF"
+            android:text="Learn ADF"
+            android:layout_width="200dp"
+            android:layout_height="50dp"
+            android:layout_alignParentBottom="true"
+            android:layout_toLeftOf="@+id/buttonClose"/>
+        <Button
+            android:id="@+id/buttonSaveADF"
+            android:text="Save ADF"
+            android:layout_width="200dp"
+            android:layout_height="50dp"
+            android:layout_alignParentBottom="true"
+            android:layout_toLeftOf="@+id/buttonLearnADF"/>
 
     </RelativeLayout>
 

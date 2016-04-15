@@ -113,6 +113,14 @@ public class RemoteServer{
         else if(msg.equals("Stop Everything")){
             mainActivity.actionStopEverything();
         }
+        else if(msg.equals("Learn ADF")){
+            mainActivity.actionLearnADF();
+            mainActivity.dump("Learn Command Rxd");
+        }
+        else if(msg.equals("Save ADF")){
+            mainActivity.actionSaveADF();
+            mainActivity.dump("Save Command Rxd");
+        }
     }
 
     public static String getIPAddress() {
