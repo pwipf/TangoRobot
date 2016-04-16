@@ -85,6 +85,8 @@ public class RemoteServer{
                     }else{
                         //got a string, do something with it
                         sendActionMessage(read);
+
+                        //echo back to Remote
                         sendFeedback(read);
                     }
                 }

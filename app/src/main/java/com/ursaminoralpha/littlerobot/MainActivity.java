@@ -274,6 +274,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void run(){
                 mDumpTextView.append(s + "\n");
                 mDumpScroll.fullScroll(View.FOCUS_DOWN);
+
+                //send text also to Remote
                 sendToRemote(s);
             }
         });
