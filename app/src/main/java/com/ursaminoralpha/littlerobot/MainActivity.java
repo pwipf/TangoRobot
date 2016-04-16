@@ -12,12 +12,15 @@ import com.google.atap.tangoservice.TangoEvent;
 import com.google.atap.tangoservice.TangoOutOfDateException;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.google.atap.tangoservice.TangoXyzIjData;
+//import com.google.atap.tango.ux;
 
 
 import android.app.Activity;
+import android.app.FragmentManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
@@ -44,7 +47,7 @@ import java.util.List;
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
 import static com.ursaminoralpha.littlerobot.MathUtil.*;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, SetADFNameDialog.CallbackListener{
     // ADF FILE NAME TO LOAD
     //String mADFName="littleRobotView";
     String mADFName="lab2 30mar";
@@ -73,6 +76,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private boolean mIsTangoServiceConnected;
     private static final int SECS_TO_MILLISECS=1000;
     private AsyncTask mSaveTask;
+    private AsyncTask mPermissionsTask;
+    //TangoUx mTangoUx;
+    int mStatus;
+    boolean mTangoReady;
 
     private double mPreviousTimeStamp;
     private double mTimeToNextUpdate=0;//mSettings.updateInterval;
@@ -81,7 +88,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // various flags
     boolean mLocalized=false;
     boolean mLearning=false;
-    boolean mPermissions=false;
+    boolean mPermissionsReady=false;
 
     TextToSpeech ttobj;
 
@@ -103,9 +110,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setTitle("Little Robot");
 
         mTangoTitle=(TextView)findViewById(R.id.tangoTitle);
-        mTangoTitle.setText("Loading ADF...");
         mSerialTitle=(TextView)findViewById(R.id.serialTitle);
-        mSerialTitle.setText("Starting Serial...");
         mDumpTextView=(TextView)findViewById(R.id.consoleText);
         mDumpScroll=(ScrollView)findViewById(R.id.scroller);
 
@@ -114,73 +119,56 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         mRobot=new Robot(this);
 
+        if(!Tango.hasPermission(this, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
+            startActivityForResult(Tango.getRequestPermissionIntent(Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), 0);
+        }
         //Tango Setup
         mTango=new Tango(this, new Runnable(){
             @Override
             public void run(){
                 dump("Tango Ready");
+                mTangoReady=true;
             }
         });
 
+
         mConfig=mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
 
-        if(!Tango.hasPermission(this, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
-            startActivityForResult(
-                    Tango.getRequestPermissionIntent(Tango.PERMISSIONTYPE_ADF_LOAD_SAVE),
-                    Tango.TANGO_INTENT_ACTIVITYCODE);
-        }
-
-        new AsyncTask<Void,Void,Integer>(){
+        mPermissionsTask = new AsyncTask<Void,Void,Integer>(){
             @Override
             protected Integer doInBackground(Void... params){
-                dump("Waiting for permission...");
-                while(!Tango.hasPermission(getApplicationContext(), Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
-
-                    SystemClock.sleep(100);
+                dump("Waiting for ADF permission...");
+                while(!Tango.hasPermission(getApplicationContext(), Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)
+                        && !isCancelled()){
+                    SystemClock.sleep(50);
                 }
-
-                ArrayList<String> fullUUIDList=mTango.listAreaDescriptions();
-                // Load the proper ADF if ADFs are found
-                //mDumpTextView.append("looking for ADF file: " + mADFName + "...\n");
-                if(fullUUIDList.size()>0){
-                    for(String uuid : fullUUIDList){
-                        TangoAreaDescriptionMetaData metadata=mTango.loadAreaDescriptionMetaData(uuid);
-                        final String name=new String(metadata.get(TangoAreaDescriptionMetaData.KEY_NAME));
-                        if(name.equals(mADFName)){
-                            dump("loading ADF: " + name + "...");
-                            mADFUUID=uuid;
-                            mConfig.putString(TangoConfig.KEY_STRING_AREADESCRIPTION, uuid);
-                            mAdfFound=true;
-                        } else{
-                           dump("found ADF: " + name + "...");
-                        }
+                if(!Tango.hasPermission(getApplicationContext(), Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
+                    dump("Could not get ADF Permission");
+                } else{
+                    dump("Got ADF Permission, Trying to load ADF: " + mADFName);
+                    if(!mTangoReady && !isCancelled())
+                        dump("Waiting For Tango Ready");
+                    while(!mTangoReady && !isCancelled()){
+                        SystemClock.sleep(50);
                     }
-                }
-                else{
-                    dump("!No ADF file listed.");
-                }
-                if(!mAdfFound)
-                    dump("!!Did not load ADF file: " + mADFName);
-                else{
-                    try{
-                        if(mIsTangoServiceConnected){
-                            mTango.disconnect();
-                            Log.d("TAG", "disconnected onCreate()");
-                        }
-                        mPermissions=true;
-                        Log.e("TAG", "mPermissions SET");
-                        runOnUiThread(new Runnable(){
-                            @Override
-                            public void run(){
-                                startTangoLikeOnResume();
+                    ArrayList<String> fullUUIDList=mTango.listAreaDescriptions();
+                    if(fullUUIDList.size()>0){
+                        for(String uuid : fullUUIDList){
+                            TangoAreaDescriptionMetaData metadata=mTango.loadAreaDescriptionMetaData(uuid);
+                            final String name=new String(metadata.get(TangoAreaDescriptionMetaData.KEY_NAME));
+                            if(name.equals(mADFName)){
+                                mADFUUID=uuid;
+                                mConfig.putString(TangoConfig.KEY_STRING_AREADESCRIPTION, uuid);
+                                mAdfFound=true;
+                                dump("Found ADF");
                             }
-                        });
-                        dump("Loaded ADF");
-                    }catch(TangoErrorException e){dump("oncreate() tangoexc: " + e.getMessage());}
+                        }
+                        if(!mAdfFound)dump("Could not find ADF "+mADFName);
+                    }else dump("No ADFs Stored");
                 }
-                mPermissions=true;
-                Log.e("TAG","mPermissions SET");
-            return 0;
+                mPermissionsReady=true; // if no permissions, no adf, but still ready to go!
+                startTango();
+                return 0;
             }
         }.execute();
 
@@ -209,15 +197,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
-                runOnUiThread(new Runnable(){
-                    @Override
-                    public void run(){
-                        mDumpTextView.append("TTS initialized\n");
-                    }
-                });
+                dump("TTS initialized");
             }
         });
-    }
+    }//onCreate
 
     public void speak(final String s){
         runOnUiThread(new Runnable(){
@@ -228,6 +211,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
    }
 
+    void setTangoTitleColor(final int color){
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                mTangoTitle.setTextColor(color);
+            }
+        });
+    }
     public void setTangoTitleText(final String s){
         runOnUiThread(new Runnable(){
             @Override
@@ -283,6 +274,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void run(){
                 mDumpTextView.append(s + "\n");
                 mDumpScroll.fullScroll(View.FOCUS_DOWN);
+                sendToRemote(s);
             }
         });
     }
@@ -290,87 +282,82 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onResume(){
         super.onResume();
-
-        Log.e("TAG","onResume() mPermissions: "+mPermissions);
-
         mRemoteServer.serverStart();
-
-        // find and open serial port. this is done asynchonously. The task keeps going
-        // in the background until it finds one.
         getSerialDevice();
-
-        startTangoLikeOnResume();
+        startTango();
     }
 
-    void startTangoLikeOnResume(){
-        // tango setup, direct from google java-quick-start-example
-        if(!mIsTangoServiceConnected && mPermissions){
-            String uuid=mConfig.getString(TangoConfig.KEY_STRING_AREADESCRIPTION);
-            dump("uuid "+uuid);
-            if(uuid==null || uuid.length()==0){
-                mCurrentADFName="NOT USING";
-            }else{
-                TangoAreaDescriptionMetaData meta = new TangoAreaDescriptionMetaData();
-                meta = mTango.loadAreaDescriptionMetaData(uuid);
-                byte[] n=meta.get(TangoAreaDescriptionMetaData.KEY_NAME);
-                if(n!=null)
-                    mCurrentADFName=new String(n);
-                else
-                    mCurrentADFName="NOT FOUND";
-            }
+    void startTango(){
+        if(!mIsTangoServiceConnected && mPermissionsReady)
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                // get the name of the ADF set in mConfig
+                String uuid=mConfig.getString(TangoConfig.KEY_STRING_AREADESCRIPTION);
+                if(uuid==null || uuid.length()==0){
+                    mCurrentADFName="NOT USING";
+                }else{
+                    byte[] n=mTango.loadAreaDescriptionMetaData(uuid).get(TangoAreaDescriptionMetaData.KEY_NAME);
+                    if(n!=null)
+                    mCurrentADFName= n==null? "NOT FOUND" : new String(n);
+                }
+                // try to set listeners
+                try{
+                    setTangoListeners();
+                } catch(TangoErrorException e){
+                    dump("Tango Error! Restart the app!");
+                }
 
-
-            Log.e("TAG","start tango service");
-            try{
-                setTangoListeners();
-            } catch(TangoErrorException e){
-                dump("Tango Error! Restart the app!");
+                // try to start service
+                try{
+                    mTango.connect(mConfig);
+                    mIsTangoServiceConnected=true;
+                } catch(TangoOutOfDateException e){
+                    dump("Tango Service out of date!");
+                } catch(TangoErrorException e){
+                    dump("Tango Error! Restart the app!");
+                }
+                setLearningStatus();
             }
-
-            try{
-                dump("area guuid: "+mConfig.getString(TangoConfig.KEY_STRING_AREADESCRIPTION));
-                mTango.connect(mConfig);
-                mIsTangoServiceConnected=true;
-            } catch(TangoOutOfDateException e){
-                dump("Tango Service out of date!");
-            } catch(TangoErrorException e){
-                dump("Tango Error! Restart the app!");
-            }
-            setLearningStatus();
-        }
+        });
     }
 
     @Override
     protected void onPause(){
-        super.onPause();
         mDumpTextView.append("Pausing...\n");
+        mRemoteServer.sendFeedback("Server Pausing, will need to reconnect remote");
 
         mRemoteServer.serverStop();
-
-        //close serial port if open
-        if(Robot.mPort!=null){
-            try{
-                Robot.mPort.close();
-            } catch(IOException e){
-                e.printStackTrace();
-            }
-        }
-        Robot.mPort=null;
-        //also stop looking for it in the background!
-        if(mSerialDeviceSearchTask!=null && mLookingForDevice)
-            mSerialDeviceSearchTask.cancel(true);
-
+        closeUSBSerial();
         disconnectTangoService();
+        super.onPause();
+    }
+
+    void closeUSBSerial(){
+        if(Robot.mPort!=null){
+            try{Robot.mPort.close();
+            } catch(IOException e){}
+        }
+
+        Robot.mPort=null;
+        mSerialDeviceSearchTask.cancel(true);
+    }
+
+    void sendToRemote(String s){
+        mRemoteServer.sendFeedback(s);
     }
 
     void disconnectTangoService(){
         // tango disconnect, from google java-quick-start-example
-        try{
+        if(mIsTangoServiceConnected){
+            try{
 
-            mTango.disconnect();
-            mIsTangoServiceConnected=false;
-        } catch(TangoErrorException e){
-            dump("Tango Error!");
+                mTango.disconnect();
+                mIsTangoServiceConnected=false;
+                sendToRemote("Tango Service Disconnect");
+            } catch(TangoErrorException e){
+                dump("Tango Error!");
+            }
         }
     }
 //    @Override
@@ -387,9 +374,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ArrayList<TangoCoordinateFramePair> framePairs=new ArrayList<>();
 
         //if(mAdfFound){
-            framePairs.add(new TangoCoordinateFramePair(
-                    TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE,
-                    TangoPoseData.COORDINATE_FRAME_DEVICE));
+        framePairs.add(new TangoCoordinateFramePair(
+                TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE,
+                TangoPoseData.COORDINATE_FRAME_DEVICE));
         //} else{
         framePairs.add(new TangoCoordinateFramePair(
                 TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION,
@@ -403,6 +390,52 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void onPoseAvailable(TangoPoseData pose){
+                boolean newLoc=mLocalized;
+                boolean changed=false; //localization or status
+                if(pose.baseFrame==TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
+                        && pose.targetFrame==TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE){
+                    if(pose.statusCode==TangoPoseData.POSE_VALID){
+                        newLoc=true;
+                        // Set the color to green
+                    } else{
+                        newLoc=false;
+                        // Set the color blue
+                    }
+                }
+                if(mLocalized!=newLoc){
+                    mLocalized=newLoc;
+                    changed=true;
+                    dump("Localized: " + mLocalized);
+                }
+
+                if(pose.statusCode!=mStatus){
+                    mStatus=pose.statusCode;
+                    changed=true;
+                    dump("Status: " + statusText(mStatus));
+                }
+
+                if(changed){
+                    if(mStatus==TangoPoseData.POSE_INITIALIZING){
+                        setTangoTitleColor(Color.RED);
+                        setTangoTitleText("Tango Initializing (hold still)...");
+                    }else{
+                        setTangoTitleColor(mLocalized? Color.rgb(0,180,0) : Color.rgb(180,0,0));
+                        setTangoTitleText((mLocalized? "Localized" : "Not Localized") + " ADF: " + mCurrentADFName);
+                    }
+                }
+
+                if(pose.baseFrame==TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
+                        && pose.targetFrame==TangoPoseData.COORDINATE_FRAME_DEVICE){
+                    if(!mLocalized)
+                        return;
+                }
+
+                if(pose.baseFrame==TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE
+                        && pose.targetFrame==TangoPoseData.COORDINATE_FRAME_DEVICE){
+                    if(mLocalized)
+                        return;
+                }
+
 
                 // Throttle updates to the UI based on UPDATE_INTERVAL_MS.
                 final double deltaTime=(pose.timestamp - mPreviousTimeStamp)
@@ -412,20 +445,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if(mTimeToNextUpdate<0.0){
                     mTimeToNextUpdate=Robot.mSettings.updateInterval;
 
-                    int sc=pose.statusCode;
-                    setStatusText(statusText(sc));
-
-                    if(pose.baseFrame==TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
-                            && pose.targetFrame==TangoPoseData.COORDINATE_FRAME_DEVICE){
-                        if(pose.statusCode==TangoPoseData.POSE_VALID)
-                            mLocalized=true;
-                    }
-
-                    if(pose.baseFrame==TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE
-                            && pose.targetFrame==TangoPoseData.COORDINATE_FRAME_DEVICE){
-                        if(pose.statusCode==TangoPoseData.POSE_VALID)
-                            mLocalized=false;
-                    }
+                    setStatusText(statusText(mStatus));
 
                     Robot.mCurTranslation=new Vec3(pose.translation);
 
@@ -437,7 +457,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                     setRotationText(String.format("YRot:%.2f", Robot.mYRot));
                     setTranslationText("Translation: " + Robot.mCurTranslation);
-                    setStatusText(statusText(sc));
 
                     //update robot localization status
                     if(mLocalized){
@@ -446,26 +465,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             Robot.sendCommand(Commands.BEEPHILOW);
                             Robot.mLocalized=true;
                         }
-                    }else{
+                    } else{
                         if(Robot.mLocalized){
                             //Robot.changeMode(Robot.Modes.SEARCHLOC);
                             Robot.sendCommand(Commands.BEEPLOWHI);
                             Robot.mLocalized=false;
-                        }
-                    }
-
-                    //set titletext
-                    if(sc==TangoPoseData.POSE_INITIALIZING){
-                        setTangoTitleText("Tango Initializing (hold still)...");
-                    }else{
-                        if(!mLocalized){
-                            if(mConfig.getString(TangoConfig.KEY_STRING_AREADESCRIPTION).equals(""))
-                                setTangoTitleText("No Adf Loaded");
-                            else{
-                                setTangoTitleText("Trying to Localize ADF " + mCurrentADFName + "...");
-                            }
-                        } else{
-                            setTangoTitleText("Localized, Tracking (" + mCurrentADFName + ")...");
                         }
                     }
 
@@ -586,102 +590,105 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void run(){
                 if(mLearning){
                     ((Button)findViewById(R.id.buttonLearnADF)).setText("Cancel Learning");
+                    sendToRemote("Learning Mode On");
                 } else{
                     ((Button)findViewById(R.id.buttonLearnADF)).setText("Learn ADF");
+                    sendToRemote("Learning Mode Off");
                 }
             }
         });
     }
 
+    private void showSetADFNameDialog() {
+        Bundle bundle = new Bundle();
+        bundle.putString("name", "New ADF");
+        bundle.putString("id", ""); // UUID is generated after the ADF is saved.
+
+        FragmentManager manager = getFragmentManager();
+        SetADFNameDialog setADFNameDialog = new SetADFNameDialog();
+        setADFNameDialog.setArguments(bundle);
+        setADFNameDialog.show(manager, "ADFNameDialog");
+    }
+
+    @Override
+    public void onAdfNameOk(String name, String uuid) {
+        reallySaveADF(name);
+    }
+
+    @Override
+    public void onAdfNameCancelled(){
+
+    }
+
     public void actionSaveADF(){
         if(mLearning){
-            dump("starting save task");
-            TangoConfig config=mTango.getConfig(TangoConfig.CONFIG_TYPE_CURRENT);
-            dump("conn mode: " + mIsTangoServiceConnected);
-            Log.e("TAG", "saving aDF");
-            dump("Saving Area Description...");
-            String uuid="";
-            try{
-                uuid=mTango.saveAreaDescription();
-                dump("Finished Saving, restarting, UUID: " + uuid);
-                mTango.disconnect();
-                mIsTangoServiceConnected=false;
-                TangoAreaDescriptionMetaData meta=mTango.loadAreaDescriptionMetaData(uuid);
-                meta.set(TangoAreaDescriptionMetaData.KEY_NAME, new String("NewwhoADF").getBytes());
-                mTango.saveAreaDescriptionMetadata(uuid, meta);
-                stopLearnADF(uuid);
-            } catch(TangoErrorException e){
-                e.printStackTrace();
-                dump("save exc: " + e.getMessage());
+            showSetADFNameDialog();
+        }else{
+            dump("Not Learning");
+        }
+    }
+
+    public void reallySaveADF(final String name){
+        dump("starting save task");
+        mSaveTask=new AsyncTask<Void, Integer, String>(){
+            @Override
+            protected String doInBackground(Void... params){
+                Log.e("TAG", "saving aDF");
+                dump("Saving Area Description...");
+                try{
+                    String uuid=mTango.saveAreaDescription();
+                    dump("Finished Saving, restarting, UUID: " + uuid);
+                    return uuid;
+                } catch(TangoErrorException e){
+                    e.printStackTrace();
+                    dump("save exc: " + e.getMessage());
+                }
+                return "";
             }
 
-            mSaveTask=new AsyncTask<Void, Integer, String>(){
-                @Override
-                protected String doInBackground(Void... params){
-                    Log.e("TAG", "saving aDF");
-                    dump("Saving Area Description...");
-                    try{
-                        String uuid=mTango.saveAreaDescription();
-                        dump("Finished Saving, restarting, UUID: " + uuid);
-                        return uuid;
-                    } catch(TangoErrorException e){
-                        e.printStackTrace();
-                        dump("save exc: " + e.getMessage());
-                    }
-                    return "";
-                }
+            @Override
+            protected void onProgressUpdate(Integer... progress){
+                dump("Save prog: " + progress);
+                sendToRemote("Save Progress: "+progress);
+            }
 
-                @Override
-                protected void onProgressUpdate(Integer... progress){
-                    dump("Save prog: "+progress);
-                }
-
-                @Override
-                protected void onPostExecute(String uuid){
-                    mTango.disconnect();
-                    mIsTangoServiceConnected=false;
-                    TangoAreaDescriptionMetaData meta=mTango.loadAreaDescriptionMetaData(uuid);
-                    meta.set(TangoAreaDescriptionMetaData.KEY_NAME, new String("NewwhoADF").getBytes());
-                    mTango.saveAreaDescriptionMetadata(uuid, meta);
-                    stopLearnADF(uuid);
-                }
-            };
-        } else{
-            dump("not learning");
-        }
+            @Override
+            protected void onPostExecute(String uuid){
+                disconnectTangoService();
+                TangoAreaDescriptionMetaData meta=mTango.loadAreaDescriptionMetaData(uuid);
+                meta.set(TangoAreaDescriptionMetaData.KEY_NAME, name.getBytes());
+                mTango.saveAreaDescriptionMetadata(uuid, meta);
+                dump("Saved ADF as: "+name);
+                //sendToRemote("Saved ADF as: "+name);
+                stopLearnADF(uuid);
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     private void learnADF(){
         try{
-            //disconnect
-            if(mIsTangoServiceConnected){
-                disconnectTangoService();
-            }
-            //mConfig=mTango.getConfig(TangoConfig.CONFIG_TYPE_CURRENT);
-            //unload current ADF
+            disconnectTangoService();
             mConfig=new TangoConfig();
             mConfig=mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
             mConfig.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, true);
             mLearning=true;
             dump("learning mode starting");
             Log.e("TAG","learning mode starting");
-            startTangoLikeOnResume();
+            startTango();
         }catch(TangoErrorException e){dump("learnADF() tangoExc: "+e.getMessage());}
     }
 
     private void stopLearnADF(String loadADFuuid){
         try{
             //disconnect
-            if(mIsTangoServiceConnected){
-                disconnectTangoService();
-            }
+            disconnectTangoService();
             mConfig=mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
-            //load ADF
             mConfig.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, false);
+            //load adf
             mConfig.putString(TangoConfig.KEY_STRING_AREADESCRIPTION, loadADFuuid);
             dump("learning mode stop");
             mLearning=false;
-            startTangoLikeOnResume();
+            startTango();
         }catch(TangoErrorException e){dump("stopLearnADF() tangoExc: "+e.getMessage());}
     }
 
@@ -779,13 +786,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if(!mLookingForDevice){
             mLookingForDevice=true;
             mSerialDeviceSearchTask=new AsyncTask<Void, Integer, UsbSerialPort>(){
-
+                int dots;
                 // this runs in background until a device is found
                 @Override
                 protected UsbSerialPort doInBackground(Void... params){
                     UsbSerialPort result=null;
                     mUsbManager=(UsbManager)getSystemService(Context.USB_SERVICE);
-                    while(result==null && !isCancelled()){
+                    long startTime=System.currentTimeMillis();
+                    //start getting device with "timeout"
+                    while(result==null && !isCancelled() && System.currentTimeMillis()-startTime<3000){
                         final List<UsbSerialDriver> drivers=UsbSerialProber.getDefaultProber().findAllDrivers(mUsbManager);
                         if(drivers.size()>0){
                             UsbSerialDriver driver=drivers.get(0);
@@ -795,15 +804,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                     result=driver.getPorts().get(0);
                                 }
                             } catch(SecurityException e){
-                                System.exit(1);
+                                dump("GetSerialDevice Exception: "+e.getMessage());
                             }
-
                         }
                         if(result==null){
                             SystemClock.sleep(500);
-                            mSerialDots++;
-                            if(mSerialDots==4) mSerialDots=0;
-                            publishProgress(mSerialDots);
+                            dots++;
+                            if(dots==4) dots=0;
+                            publishProgress(dots);
                         }
                     }
                     return result;
@@ -815,9 +823,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 @Override
                 protected void onPostExecute(UsbSerialPort result){
                     mLookingForDevice=false;
-                    mSerialTitle.setText("Serial Found");
-                    Robot.mPort=result;
-                    openPort();
+                    if(result!=null){
+                        openPort(result);
+                    }else{
+                        mSerialTitle.setTextColor(Color.rgb(180,0,0));
+                        mSerialTitle.setText("No Serial Port.");
+                    }
                 }
 
                 // this is just to make the elipses in the status keep moving
@@ -834,6 +845,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 @Override
                 protected void onCancelled(){
                     mLookingForDevice=false;
+                    dump("Search USB Cancelled");
                 }
             }.execute();
         }
@@ -842,27 +854,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // open the usb serial port
     // called if the mSerialDeviceSearchTask finds a port
     // only called from that task, in onPostExecute()
-    private void openPort(){
+    private void openPort(UsbSerialPort result){
+        if(result==null)
+            return;
         mSerialTitle.setText("Getting connection...");
-        UsbDeviceConnection connection=mUsbManager.openDevice(Robot.mPort.getDriver().getDevice());
+        UsbDeviceConnection connection=mUsbManager.openDevice(result.getDriver().getDevice());
         if(connection!=null){
             try{
                 mSerialTitle.setText("Opening now....");
-                Robot.mPort.open(connection);
+                result.open(connection);
                 mSerialTitle.setText("Opened....");
-                Robot.mPort.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+                result.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+                mSerialTitle.setTextColor(Color.rgb(0,180,0));
                 mSerialTitle.setText("Serial Port Ready");
+                Robot.mPort=result;
             } catch(IOException e){
                 try{
-                    Robot.mPort.close();
+                    result.close();
                 } catch(IOException f){
                     e.printStackTrace();
                 }
-                Robot.mPort=null;
             }
-        } else{
-            Toast.makeText(this, "Re-Getting Serial Device", Toast.LENGTH_SHORT).show();
-            getSerialDevice();
         }
     }
 

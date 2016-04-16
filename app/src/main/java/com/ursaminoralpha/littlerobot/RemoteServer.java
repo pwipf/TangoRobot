@@ -11,8 +11,11 @@ package com.ursaminoralpha.littlerobot;
 // Calls mainactivity.setServerStatus to tell it's status.
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
@@ -22,8 +25,10 @@ import java.util.List;
 
 
 public class RemoteServer{
-    private ServerSocket serverSocket;
-    private Socket readSocket;
+    private ServerSocket mServerSocket;
+    private Socket mSocket;
+    BufferedReader mIn;
+    PrintWriter mOut;
     Thread serverThread = null;
     MainActivity mainActivity;
 
@@ -44,12 +49,14 @@ public class RemoteServer{
     }
 
     public void serverStop(){
-        if(serverSocket!=null){
+        mIn=null;
+        mOut=null;
+        if(mServerSocket!=null){
             try{
-                if(serverSocket.isBound()){
-                    if(readSocket != null && readSocket.isConnected())
-                        readSocket.close();
-                    serverSocket.close();
+                if(mServerSocket.isBound()){
+                    if(mSocket!= null && mSocket.isConnected())
+                        mSocket.close();
+                    mServerSocket.close();
                 }
             } catch(IOException e){
                 e.printStackTrace();
@@ -65,18 +72,20 @@ public class RemoteServer{
         public void run() {
             mainActivity.setServerStatus("IP: " + getIPAddress() + " :" + 6242);
             try{
-                serverSocket = new ServerSocket(6242);
-                readSocket = serverSocket.accept();
-                BufferedReader in=new BufferedReader(new InputStreamReader(readSocket.getInputStream()));
-
+                mServerSocket= new ServerSocket(6242);
+                mSocket= mServerSocket.accept();
+                mIn=new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
+                mOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream())),true);
+                sendFeedback("Hello from Tango!");
                 while(!Thread.currentThread().isInterrupted()){
                     mainActivity.setServerStatus("Remote Connected");
-                    String read = in.readLine();
+                    String read = mIn.readLine();
                     if(read==null){
                         serverRestart();
                     }else{
                         //got a string, do something with it
-                        sendMessage(read);
+                        sendActionMessage(read);
+                        sendFeedback(read);
                     }
                 }
             }catch(IOException e){mainActivity.dump("Server exc: "+e.getMessage());}
@@ -85,7 +94,17 @@ public class RemoteServer{
         }
     }
 
-    void sendMessage(String msg){
+    public synchronized void sendFeedback(String s){
+        if(mSocket == null || !mSocket.isConnected())
+            return;
+
+        if(mOut== null)
+            return;
+
+        mOut.println("echo: "+s);
+    }
+
+    void sendActionMessage(String msg){
         if(msg.equals("Forward")){
             mainActivity.actionCommand(Robot.Commands.FORWARD);
         }

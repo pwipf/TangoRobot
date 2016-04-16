@@ -284,8 +284,8 @@ public class Robot{
                         if(mUseTargetRotation && !mOnTargetRot)
                             changeDirection(mTargetList.get(mCurrentTarget).rot, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
-                            sendCommand(Commands.BEEPLOWHI);
                             changeMode(Modes.STOP);
+                            sendCommand(Commands.BEEPLOWHI);
                             mainAct.dump("At Final Target");
                             mainAct.setSerialTitleText("At Target " + mCurrentTarget + " (End)");
                             mainAct.speak("engaging final target");
@@ -310,7 +310,7 @@ public class Robot{
 
             //at this point maybe we got close enough to the target, set the flag and return
             if(toDist<mSettings.threshDistSmall){ //on target stop (next update will start going to next target)
-                sendCommand(Commands.STOP);
+                //sendCommand(Commands.STOP);
                 mOnTarget=true;
                 mOnTargetRot=false;
                 return;
