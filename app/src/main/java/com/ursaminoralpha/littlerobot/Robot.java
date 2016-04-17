@@ -1,22 +1,23 @@
 package com.ursaminoralpha.littlerobot;
 
 
+import android.graphics.Color;
+
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Timer;
 
 import static com.ursaminoralpha.littlerobot.MathUtil.makeAngleInProperRange;
 
 public class Robot{
 
-    static Commands mMovingState=Commands.STOP;
-    static Modes mMode=Modes.STOP;
+    private Commands mMovingState=Commands.STOP;
+    private Modes mMode=Modes.STOP;
 
-    static MainActivity mainAct;
+    MainActivity mMainAct;
 
-    static class Target{
+    private class Target{
         Vec3 pos;
         double rot;
         Target(Vec3 p, double r){
@@ -24,17 +25,18 @@ public class Robot{
         }
     };
 
-    static ArrayList<Target> mTargetList=new ArrayList<>();
+    private ArrayList<Target> mTargetList=new ArrayList<>();
     private static int mCurrentTarget=0;
-    static boolean mUseTargetRotation=true;
-    static boolean mOnTarget=false;
-    static boolean mOnTargetRot=false;
-    static Vec3 mCurTranslation=new Vec3();
-    static Vec3 mToTarget=new Vec3(10, 10, 0);
-    static double mYRot=0;
-    public static Settings mSettings=new Settings();
-    public static UsbSerialPort mPort;
-    public static boolean mLocalized=false;
+    private boolean mUseTargetRotation=true;
+    private boolean mOnTarget=false;
+    private boolean mOnTargetRot=false;
+    private Vec3 mCurTranslation=new Vec3();
+    private Vec3 mToTarget=new Vec3(10, 10, 0);
+    private double mYRot=0;
+    public Settings mSettings=new Settings();
+    private UsbSerialPort mPort;
+    private boolean mLocalized=false;
+
 
     public enum Commands{
         FORWARD("FORWARD"), SPINRIGHT("SPINRIGHT"), SPINLEFT("SPINLEFT"),
@@ -68,38 +70,74 @@ public class Robot{
     }
 
     //constructor
-    Robot(MainActivity mainAct){
-        this.mainAct=mainAct;
-
+    public Robot(MainActivity mainAct, UsbSerialPort port){
+        this.mMainAct=mainAct;
+        mPort=port;
     }
 
-
-    public static void go(){
-        if(mTargetList.size()==0){
-            mainAct.dump("No Targets");
-            return;
+    public void changeMode(final Modes m){
+        switch(mMode){//current mode
+            case STOP:
+                break;
+            case GOTOTARGET:
+                break;
+            case SEARCHLOC:
+                //gSearchTimer.cancel();
+                //gSearchTimer.purge();
+                break;
         }
-        sendCommand(Commands.BEEPHI);
-        changeMode(Modes.GOTOTARGET);
-        mainAct.speak("starting");
+        switch(m){ // to mode
+            case STOP:
+                sendManualCommand(Commands.STOP);
+                mMainAct.setSerialTitleText("Stopped", Color.BLUE);
+                break;
+            case GOTOTARGET:
+                if(mTargetList.size()==0){
+                    mMainAct.dump("No Targets");
+                    return;
+                }
+                sendCommand(Commands.BEEPHI);
+                mOnTarget=false;
+                mOnTargetRot=false;
+                mMainAct.speak("Going to target");
+                mMainAct.dump("Going to Target " + mCurrentTarget);
+                mMainAct.setSerialTitleText("Going to Target " + mCurrentTarget + "...", Color.BLUE);
+                break;
+            case SEARCHLOC:
+//                searchForLocalization(true);
+//                gSearchTimer=new Timer();
+//                gSearchTimer.schedule(new TimerTask(){
+//                    @Override
+//                    public void run(){
+//                        runOnUiThread(new Runnable(){
+//                            @Override
+//                            public void run(){
+//                                mDumpTextView.append("timer...\n");
+//                            }
+//                        });
+//                        searchForLocalization(false);
+//                    }
+//                },100,500);
+                break;
+        }
+        mMode=m;
+        mMainAct.dump("MODECHANGE: " + m);
     }
 
-    public static void clearTargets(){
+    public void clearTargets(){
         mCurrentTarget=0;
         mTargetList.clear();
         changeMode(Modes.STOP);
     }
-    public static void stopEverything(){
+    public void stopEverything(){
         mCurrentTarget=0;
         changeMode(Modes.STOP);
     }
 
-    public static void addTarget(){
-        mainAct.dump("Added Target " + mTargetList.size() + "\n");
+    public void addTarget(){
+        mMainAct.dump("Added Target " + mTargetList.size() + "\n");
         mTargetList.add(new Target(mCurTranslation, mYRot));
-        //mTargetLoc=mCurTranslation;
-        //mTargetRot=mYRot;
-        mainAct.speak("target recorded");
+        mMainAct.speak("target recorded");
     }
 
 
@@ -109,15 +147,20 @@ public class Robot{
     // if manual is true, command is sent even if the same as lastCommand,
     // and lastCommand is not updated.  This keeps the button-press commands(manual=true)
     // separate from the auto commands
-    public static void sendCommand(Commands c){
+
+    public void stop(){
+        sendManualCommand(Commands.STOP);
+    }
+
+    private void sendCommand(Commands c){
         sendCommandX(c, false);
     }
 
-    public static void sendForcedCommand(Commands c){
+    public void sendManualCommand(Commands c){
         sendCommandX(c, true);
     }
 
-    private static void sendCommandX(Commands c, boolean force){
+    private void sendCommandX(Commands c, boolean force){
 
         if(c==mMovingState && !force)
             return;
@@ -177,6 +220,7 @@ public class Robot{
             }
 
             // actually send the command over the port
+
             try{
                 n=mPort.write(buf, 5000);
             } catch(IOException e){
@@ -186,14 +230,14 @@ public class Robot{
 
         //output an info message
         if(n>0){
-            mainAct.dump(c + " sent");
+            mMainAct.dump(c + " sent");
         } else{
-            mainAct.dump("Tried to send " + c);
+            mMainAct.dump("Tried to send " + c);
         }
     }
     //This is the interesting stuff, called each time the pose data is updated
     //this is called from pose listener thread, NOT UI
-    public static void doYourStuff(){
+    private void doYourStuff(){
         if(mTargetList.size()>0){
             mToTarget=mTargetList.get(mCurrentTarget).pos.subtract(mCurTranslation);
         } else
@@ -204,7 +248,7 @@ public class Robot{
         final double turnAngle=makeAngleInProperRange(toAngle - mYRot);
 
 
-        mainAct.setDirToText(String.format("toAngle: %.3f, turnAngle: %.3f, Distance: %.3f", toAngle, turnAngle, toDist));
+        mMainAct.setDirToText(String.format("toAngle: %.3f, turnAngle: %.3f, Distance: %.3f", toAngle, turnAngle, toDist));
 
         //READY TO GO!!!
         switch(mMode){
@@ -222,53 +266,8 @@ public class Robot{
         }
     }
 
-    Timer gSearchTimer;
-    public static void changeMode(final Modes m){
-        switch(mMode){//current mode
-            case STOP:
-                break;
-            case GOTOTARGET:
-                break;
-            case SEARCHLOC:
-                //gSearchTimer.cancel();
-                //gSearchTimer.purge();
-                break;
-        }
-        switch(m){ // to mode
-            case STOP:
-                sendForcedCommand(Commands.STOP);
-                mainAct.setSerialTitleText("Stopped");
-                break;
-            case GOTOTARGET:
-                mOnTarget=false;
-                mOnTargetRot=false;
-                mainAct.dump("Going to Target " + mCurrentTarget);
-                mainAct.setSerialTitleText("Going to Target " + mCurrentTarget + "...");
-                break;
-            case SEARCHLOC:
-//                searchForLocalization(true);
-//                gSearchTimer=new Timer();
-//                gSearchTimer.schedule(new TimerTask(){
-//                    @Override
-//                    public void run(){
-//                        runOnUiThread(new Runnable(){
-//                            @Override
-//                            public void run(){
-//                                mDumpTextView.append("timer...\n");
-//                            }
-//                        });
-//                        searchForLocalization(false);
-//                    }
-//                },100,500);
-                break;
-        }
-        mMode=m;
-        mainAct.dump("MODECHANGE: " + m);
-    }
-
-
     // logic to drive toward target
-    private static void goToTarget(double toDist){
+    private void goToTarget(double toDist){
         try{
             //check for errors, just in case, shouldn't be "going to target" in this case
             if(mTargetList.size()==0 || mCurrentTarget>=mTargetList.size()){
@@ -286,20 +285,20 @@ public class Robot{
                         if(mOnTargetRot || !mUseTargetRotation){
                             changeMode(Modes.STOP);
                             sendCommand(Commands.BEEPLOWHI);
-                            mainAct.dump("At Final Target");
-                            mainAct.setSerialTitleText("At Target " + mCurrentTarget + " (End)");
-                            mainAct.speak("engaging final target");
+                            mMainAct.dump("At Final Target");
+                            mMainAct.setSerialTitleText("At Target " + mCurrentTarget + " (End)", Color.BLUE);
+                            mMainAct.speak("engaging final target");
                         }
                         return;//don't do anything else
 
                     } else{ // more targets to go
-                        mainAct.dump("Switched to Target " + mCurrentTarget);
-                        mainAct.setSerialTitleText("Going to Target " + mCurrentTarget + "...");
+                        mMainAct.dump("Switched to Target " + mCurrentTarget);
+                        mMainAct.setSerialTitleText("Going to Target " + mCurrentTarget + "...", Color.BLUE);
                         sendCommand(Commands.BEEPLOWHI);
                         mCurrentTarget++;
                         mOnTarget=false;
                         mOnTargetRot=false;
-                        mainAct.speak("going to next target");
+                        mMainAct.speak("going to next target");
                         return;
                     }
                 } else{// not on target
@@ -322,7 +321,7 @@ public class Robot{
             changeDirection(toAngle, Commands.FORWARD);
 
         } catch(Exception e){
-            mainAct.dump("goToTarget() exception: " + e.getMessage());
+            mMainAct.dump("goToTarget() exception: " + e.getMessage());
         }
     }
 
@@ -330,7 +329,7 @@ public class Robot{
     //changeDirection()
     // this one accepts a target direction and a command to run
     // after the target direction is aquired, forward or stop I guess
-    private static void changeDirection(double targetDir, Commands afterCommand){
+    private void changeDirection(double targetDir, Commands afterCommand){
         double turnAngle=makeAngleInProperRange(targetDir - mYRot);
         double mag=Math.abs(turnAngle);
         boolean needToTurnLeft=turnAngle>0; //need to turn left
@@ -371,7 +370,7 @@ public class Robot{
     static int gSearchMode;
     static double gRadius;
     static int gCircleMode;
-    private static void searchForLocalization(boolean reset){
+    private void searchForLocalization(boolean reset){
         if(reset){
             gSearchMode=0;
             gRadius=1;
@@ -411,5 +410,20 @@ public class Robot{
                     break;
             }
         }
+    }
+
+    public void setLocalized(boolean localized){
+        mLocalized=localized;
+        sendCommand(mLocalized? Commands.BEEPLOWHI : Commands.BEEPHILOW);
+    }
+
+    public boolean isLocalized(){
+        return mLocalized;
+    }
+
+    public void setPose(Vec3 translation, double rotation){
+        mCurTranslation=translation;
+        mYRot=rotation;
+        doYourStuff();
     }
 }

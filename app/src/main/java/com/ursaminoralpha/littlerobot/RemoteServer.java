@@ -32,7 +32,7 @@ public class RemoteServer{
     MainActivity mainActivity;
     int mPort;
 
-    public RemoteServer(MainActivity parent, int port){
+    public RemoteServer(MainActivity parent, Integer port){
         mainActivity=parent;
         mPort=port;
         mServerThread=new ServerThread(port);
