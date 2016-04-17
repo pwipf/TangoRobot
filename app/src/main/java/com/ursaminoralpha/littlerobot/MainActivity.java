@@ -39,15 +39,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     TextToSpeech ttobj;
 
-    USBSerial mUSBSerial;
+    OtherSerial mSerialPort;
     Robot mRobot;
-    TheTango mTango;
+//    TheTango mTango;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         // read settings
-        readPrefs();
 
         // have screen not sleep while this activity running
         findViewById(android.R.id.content).setKeepScreenOn(true);
@@ -67,11 +66,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //initialize Remote control server
         mRemoteServer=new RemoteServer(this,6242);
 
+        mSerialPort= new OtherSerial(this);
+
         //Robot
-        mRobot=new Robot(this,mUSBSerial.mPort);
+        mRobot=new Robot(this, mSerialPort);
+
+        //have to load prefs after creating robot
+        readPrefs();
 
         //Tango
-        mTango=new TheTango(this,false,mInitialADF,mRobot);
+        //give tango initial learning mode, adf, and a robot to send updates to
+//        mTango=new TheTango(this,false,mInitialADF,mRobot);
 
 
 
@@ -90,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(R.id.buttonResetTargets).setOnClickListener(this);
         findViewById(R.id.buttonLearnADF).setOnClickListener(this);
         findViewById(R.id.buttonSaveADF).setOnClickListener(this);
-//        findViewById(R.id.buttonConnect).setOnClickListener(this);
+        //findViewById(R.id.buttonConnect).setOnClickListener(this);
 
         mTranslationTextView=(TextView)findViewById(R.id.translation_textview);
         mRotationTextView=(TextView)findViewById(R.id.rotation_textview);
@@ -109,8 +114,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onResume(){
         super.onResume();
         mRemoteServer.start();
-        mUSBSerial.open();
-        mTango.start();
+        mSerialPort.open();
+//        mTango.start();
     }
 
     @Override
@@ -119,8 +124,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mRemoteServer.sendMessage("Server Pausing, will need to reconnect remote");
         mRemoteServer.stop();
         mRobot.stop(); //better stop the robot!
-        mUSBSerial.close();
-        mTango.stopTango();
+        mSerialPort.close();
+//        mTango.stopTango();
         super.onPause();
     }
 
@@ -269,10 +274,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         runOnUiThread(new Runnable(){
             @Override
             public void run(){
-                if(!mTango.isLearningMode())
-                    mTango.startLearnADFmode(null);
-                else
-                    mTango.stopLearnADFmode(mTango.getUUIDFromADFFileName(mInitialADF));
+//                if(!mTango.isLearningMode())
+//                    mTango.startLearnADFmode(null);
+//                else
+//                    mTango.stopLearnADFmode(mTango.getUUIDFromADFFileName(mInitialADF));
             }
         });
     }
@@ -305,7 +310,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onAdfNameOk(String name, String uuid) {
-        mTango.saveADF(name);
+//        mTango.saveADF(name);
     }
 
     @Override
@@ -313,12 +318,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public void actionSaveADF(){
-        if(mTango.isLearningMode()){
-            mRobot.changeMode(Robot.Modes.STOP);
-            showSetADFNameDialog();
-        }else{
-            dump("Not Learning");
-        }
+//        if(mTango.isLearningMode()){
+//            mRobot.changeMode(Robot.Modes.STOP);
+//            showSetADFNameDialog();
+//        }else{
+//            dump("Not Learning");
+//        }
     }
 
     // call from RemoteServer to update it's status
@@ -394,7 +399,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mRobot.mSettings.threshAngleBig=pref.getFloat("ThreshAngleBig", .4f);
         mRobot.mSettings.threshAngleSmall=pref.getFloat("ThreshAngleSmall",.3f);
         mRobot.mSettings.updateInterval=pref.getFloat("UpdateRate",100.0f);
+        mInitialADF=pref.getString("ADFInitial","lab2 30mar");
     }
+
+    void writePrefs(){
+        SharedPreferences pref=this.getSharedPreferences("Prefs",Activity.MODE_PRIVATE);
+        SharedPreferences.Editor editor = pref.edit();
+        editor.putString("ADFInitial",mInitialADF);
+        editor.putFloat("ThreshDistBig",mRobot.mSettings.threshDistBig);
+        editor.putFloat("ThreshDistSmall",mRobot.mSettings.threshDistSmall);
+        editor.putFloat("ThreshAngleBig",mRobot.mSettings.threshAngleBig);
+        editor.putFloat("ThreshAngleSmall",mRobot.mSettings.threshAngleSmall);
+        editor.putFloat("UpdateRate",mRobot.mSettings.updateInterval);
+        editor.commit();
+    }
+
 
     // this is called when the settings activity returns (startActivityForResult())
     @Override

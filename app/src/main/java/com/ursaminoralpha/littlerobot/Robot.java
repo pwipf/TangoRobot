@@ -3,9 +3,6 @@ package com.ursaminoralpha.littlerobot;
 
 import android.graphics.Color;
 
-import com.hoho.android.usbserial.driver.UsbSerialPort;
-
-import java.io.IOException;
 import java.util.ArrayList;
 
 import static com.ursaminoralpha.littlerobot.MathUtil.makeAngleInProperRange;
@@ -34,7 +31,7 @@ public class Robot{
     private Vec3 mToTarget=new Vec3(10, 10, 0);
     private double mYRot=0;
     public Settings mSettings=new Settings();
-    private UsbSerialPort mPort;
+    private OtherSerial mPortDevice;
     private boolean mLocalized=false;
 
 
@@ -70,9 +67,9 @@ public class Robot{
     }
 
     //constructor
-    public Robot(MainActivity mainAct, UsbSerialPort port){
+    public Robot(MainActivity mainAct, OtherSerial port){
         this.mMainAct=mainAct;
-        mPort=port;
+        mPortDevice=port;
     }
 
     public void changeMode(final Modes m){
@@ -171,7 +168,7 @@ public class Robot{
 
         byte buf[]=new byte[2];
         int n=0;
-        if(mPort!=null){
+        if(mPortDevice.isOpen()){
             switch(c){
                 case FORWARD:
                     buf[0]='w';
@@ -220,12 +217,7 @@ public class Robot{
             }
 
             // actually send the command over the port
-
-            try{
-                n=mPort.write(buf, 5000);
-            } catch(IOException e){
-                e.printStackTrace();
-            }
+            n=mPortDevice.send(new String(buf),1000);
         }
 
         //output an info message

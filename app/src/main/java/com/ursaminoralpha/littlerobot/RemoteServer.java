@@ -76,15 +76,9 @@ public class RemoteServer{
                     c=new ConnectionThread(mServerSocket.accept(), true);
                     mConnections.add(c);
                     new Thread(c).start();
-                    int count=0;
-                    for(ConnectionThread d:mConnections)
-                        if(!d.mSocket.isClosed())
-                            count++;
-                    mainActivity.setServerStatus(count+" Remote Connections");
+                    countConnections();
                 }
-            }catch(IOException e){
-                mainActivity.dump("ServerThread.run() Excp: " + e.getMessage());
-            }
+            }catch(IOException e){/*probably socket closed*/}
             stop();
             mainActivity.setServerStatus("Remote Server Stopped");
         }
@@ -102,10 +96,16 @@ public class RemoteServer{
             if(mServerSocket != null){
                 try{
                     mServerSocket.close();
-                }catch(IOException e){
-                    mainActivity.dump("ServerThread.stop() Excp: " + e.getMessage());
-                }
+                }catch(IOException e){}
             }
+        }
+        public void countConnections(){
+            int count=0;
+            for(ConnectionThread d:mConnections){
+                if(!d.mSocket.isClosed())
+                    count++;
+            }
+            mainActivity.setServerStatus(count+" Remote Connections");
         }
     }
 
@@ -131,15 +131,16 @@ public class RemoteServer{
                 mOut.println("Hello from Tango");
                 while(!mSocket.isClosed() && !Thread.currentThread().isInterrupted()){
                     String rx=mIn.readLine();
-                    if(rx == null)
+                    if(rx == null){
+                        mSocket.close();
                         break;
+                    }
                     if(mEcho)
                         mOut.println(rx);
                     sendActionMessage(rx);
                 }
-            }catch(IOException e){
-                mainActivity.dump("Connection.run() Excp: " + e.getMessage());
-            }
+            }catch(IOException e){/*probably socket closed*/}
+            mServerThread.countConnections();
         }
 
         public void sendMessage(String mess){
@@ -152,9 +153,7 @@ public class RemoteServer{
             if(mSocket != null && !mSocket.isClosed()){
                 try{
                     mSocket.close();
-                }catch(IOException e){
-                    mainActivity.dump("Connection.stop() Excp: " + e.getMessage());
-                }
+                }catch(IOException e){}
             }
         }
     }
