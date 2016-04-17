@@ -115,7 +115,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mDumpScroll=(ScrollView)findViewById(R.id.scroller);
 
         //initialize Remote control server
-        mRemoteServer=new RemoteServer(this);
+        mRemoteServer=new RemoteServer(this,6242);
 
         mRobot=new Robot(this);
 
@@ -284,9 +284,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onResume(){
         super.onResume();
-        mRemoteServer.serverStart();
+        mRemoteServer.start();
         getSerialDevice();
         startTango();
+    }
+
+    @Override
+    protected void onPause(){
+        mDumpTextView.append("Pausing...\n");
+        mRemoteServer.sendMessage("Server Pausing, will need to reconnect remote");
+        mRemoteServer.stop();
+        closeUSBSerial();
+        disconnectTangoService();
+        super.onPause();
     }
 
     void startTango(){
@@ -324,16 +334,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
 
-    @Override
-    protected void onPause(){
-        mDumpTextView.append("Pausing...\n");
-        mRemoteServer.sendFeedback("Server Pausing, will need to reconnect remote");
-
-        mRemoteServer.serverStop();
-        closeUSBSerial();
-        disconnectTangoService();
-        super.onPause();
-    }
 
     void closeUSBSerial(){
         if(Robot.mPort!=null){
@@ -346,7 +346,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     void sendToRemote(String s){
-        mRemoteServer.sendFeedback(s);
+        mRemoteServer.sendMessage(s);
     }
 
     void disconnectTangoService(){
