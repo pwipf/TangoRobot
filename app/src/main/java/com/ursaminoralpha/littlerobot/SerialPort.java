@@ -1,6 +1,9 @@
 package com.ursaminoralpha.littlerobot;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
@@ -28,11 +31,14 @@ public class SerialPort{
 
     SerialPort(MainActivity mainAct){
         mMainAct=mainAct;
-
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+        mMainAct.registerReceiver(broadcastReceiver,filter);
     }
 
     public void open(){
-        stopMan();
+        close();
         getSerialDevice();
     }
 
@@ -43,19 +49,17 @@ public class SerialPort{
             } catch(IOException e){}
         }
         mPort=null;
+        mMainAct.setSerialStatus(false,false);
     }
 
     private void startMan(){
-        mMainAct.dump("startMan");
         if(mPort!=null){
-            mMainAct.dump("starting manager");
             mSerialManager=new SerialInputOutputManager(mPort, mListener);
             mExec.submit(mSerialManager);
         }
     }
     private void stopMan(){
         if(mSerialManager!=null){
-            mMainAct.dump("stopping manager");
             mSerialManager.stop();
             mSerialManager=null;
         }
@@ -80,7 +84,7 @@ public class SerialPort{
     // This is the main function to get and connect to the serial device
     // find the USB Serial Port device
     private void getSerialDevice(){
-        mMainAct.setSerialTitleText("Looking For USB Serial Device...",Color.BLACK);
+        mMainAct.setSerialStatus(false,false);
         mSerialDeviceSearchTask=new AsyncTask<Void,Integer,UsbSerialPort>(){
             // this does not keep checking for a device.
             // in theory should try to get notified if a device gets attached.
@@ -92,6 +96,7 @@ public class SerialPort{
                 mUsbManager=(UsbManager)mMainAct.getSystemService(Context.USB_SERVICE);
                 final List<UsbSerialDriver> drivers=UsbSerialProber.getDefaultProber().findAllDrivers(mUsbManager);
                 if(drivers.size()>0){
+                    mMainAct.setSerialStatus(true,false);
                     UsbSerialDriver driver=drivers.get(0);
                     try{
                         UsbDeviceConnection connection=mUsbManager.openDevice(driver.getDevice());
@@ -109,11 +114,8 @@ public class SerialPort{
             // (runs on UI thread)
             @Override
             protected void onPostExecute(UsbSerialPort result){
-                if(result != null){
+                if(result != null)
                     openPort(result);
-                }else{
-                    mMainAct.setSerialTitleText("No Serial Port.",Color.rgb(180, 0, 0));
-                }
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
@@ -124,13 +126,12 @@ public class SerialPort{
     private void openPort(UsbSerialPort result){
         if(result==null)
             return;
-        mMainAct.setSerialTitleText("Getting connection...",0);
         UsbDeviceConnection connection=mUsbManager.openDevice(result.getDriver().getDevice());
         if(connection!=null){
             try{
                 result.open(connection);
-                result.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
-                mMainAct.setSerialTitleText("Serial Port Ready",Color.rgb(0,180,0));
+                result.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);///////////////////////////////////////// TODO: change back to 115200
+                mMainAct.setSerialStatus(true,true);
                 mPort=result;
                 startMan();
             } catch(IOException e){
@@ -148,16 +149,23 @@ public class SerialPort{
 
                 @Override
                 public void onRunError(Exception e) {
-                    mMainAct.dump("ListenerError: "+e.getMessage());
+                    stopMan();
                 }
 
                 @Override
                 public void onNewData(final byte[] data) {
-                    for(byte b:data)
-                    if(b>=32)
-                        mMainAct.dump("("+(char)b+")");
-                    else
-                        mMainAct.dump("("+b+")");
+                    mMainAct.dump("  >"+new String(data));
                 }
             };
+
+    public final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() { //Broadcast Receiver to automatically start and stop the Serial connection.
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
+                open();
+            } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_DETACHED)) {
+                close();
+            }
+        }
+    };
 }

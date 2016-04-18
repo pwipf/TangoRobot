@@ -2,6 +2,7 @@
 <android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
@@ -17,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
-            app:popupTheme="@style/AppTheme.PopupOverlay"/>
+            app:popupTheme="@style/AppTheme.PopupOverlay" />
     </android.support.design.widget.AppBarLayout>
 
     <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -32,413 +33,176 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:context="com.ursaminoralpha.littlerobot.MainActivity"
         tools:showIn="@layout/activity_main">
+
+
         <LinearLayout
-            android:id="@+id/layoutStatus"
-            android:layout_width="200dp"
-            android:layout_height="500dp"
-            android:layout_alignParentLeft="true"
-            android:layout_alignParentTop="true"
-            android:orientation="vertical"
-            android:backgroundTint="@color/accent_material_dark">
+            android:id="@+id/layoutTop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp">
 
-            <TextView
-                android:text="Tango Status"
-                android:textColor="#0000ff"
-                android:textAlignment="center"
-                android:textSize="16sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
 
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="ADF Filename: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusADBName"
-                    android:text="NONE LOADED"
-                    android:textColor="#880000"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Localized: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusLocalized"
-                    android:text="NO"
-                    android:textColor="#880000"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Learning: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusLearning"
-                    android:text="NO"
-                    android:textColor="#8d6101"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Pose Status: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusPoseStatus"
-                    android:text="INVALID"
-                    android:textColor="#880000"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Position: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusTranslation"
-                    android:text="0, 0, 0"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:textColor="#8d6101" />
-            </LinearLayout>
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Rotation: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusRotation"
-                    android:text="0.0"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:textColor="#8d6101" />
-            </LinearLayout>
+            <fragment
+                android:id="@+id/status"
+                android:name="com.ursaminoralpha.littlerobot.StatusFragment"
+                android:layout_width="200dp"
+                android:layout_height="300dp"
+                tools:layout="@layout/fragment_status" />
 
-            <TextView
-                android:text="Serial Port"
-                android:textColor="#0000ff"
-                android:textAlignment="center"
-                android:textSize="16sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Device Found: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusSerialFound"
-                    android:text="NO"
-                    android:textColor="#880000"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Connected: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusSerialCon"
-                    android:text="NO"
-                    android:textColor="#880000"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <TextView
-                android:text="Remote Control"
-                android:textColor="#0000ff"
-                android:textAlignment="center"
-                android:textSize="16sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="IP Address: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusRemoteIP"
-                    android:text="192.168.43.1"
-                    android:textColor="#8d6101"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Port: "
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusRemotePort"
-                    android:text="6000"
-                    android:textColor="#8d6101"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Server Running"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusRemoteServer"
-                    android:text="NO"
-                    android:textColor="#880000"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:text="Connected"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:id="@+id/statusRemoteCon"
-                    android:text="NO"
-                    android:textColor="#880000"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
+            <com.ursaminoralpha.littlerobot.MapView
+                android:id="@+id/imageMap"
+                android:layout_width="0dp"
+                android:layout_height="300dp"
+                android:layout_alignParentTop="true"
+                android:layout_toRightOf="@id/status"
+                android:layout_weight="1"/>
+
         </LinearLayout>
 
-
+<LinearLayout
+    android:orientation="vertical"
+    android:layout_width="200dp"
+    android:layout_height="wrap_content"
+    android:layout_below="@id/layoutTop">
         <TextView
-            android:id="@+id/tangoTitle"
+            android:text="Log"
+            android:textAlignment="center"
+            android:textSize="16sp"
+            android:layout_marginBottom="4dp"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentLeft="true"
-            android:layout_below="@+id/layoutStatus"
-            android:text="@string/app_name"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:layout_alignEnd="@+id/serialTitle" />
-
-        <TextView
-            android:id="@+id/serialTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/tangoTitle"
-            android:text="@string/app_name"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/translation_textview"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/serialTitle"/>
-
-        <TextView
-            android:id="@+id/rotation_textview"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/translation_textview"/>
-        <TextView
-            android:id="@+id/dirTo_textview"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/rotation_textview"/>
-        <TextView
-            android:id="@+id/status_textview"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/dirTo_textview" />
-
+            android:layout_height="wrap_content" />
         <ScrollView
             android:id="@+id/scroller"
-            android:layout_width="400dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/status_textview"
             android:clickable="false">
 
             <TextView
                 android:id="@+id/consoleText"
-                android:textIsSelectable="true"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:typeface="monospace"
-                android:clickable="false"/>
+                android:clickable="false"
+                android:textIsSelectable="true"
+                android:typeface="monospace" />
         </ScrollView>
-
+</LinearLayout>
 
         <Button
+            android:id="@+id/buttonForward"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Forward"
-            android:id="@+id/buttonForward"
             android:layout_above="@+id/buttonStop"
             android:layout_alignStart="@+id/buttonReverse"
-            android:layout_marginBottom="44dp" />
+            android:text="Forward" />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="  Left  "
             android:id="@+id/buttonLeft"
-            android:layout_centerVertical="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/buttonReverse"
             android:layout_toStartOf="@+id/buttonStop"
-            android:layout_marginEnd="57dp" />
+            android:text="  Left  " />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Reverse"
             android:id="@+id/buttonReverse"
-            android:layout_marginTop="44dp"
-            android:layout_below="@+id/buttonStop"
-            android:layout_centerHorizontal="true" />
-
-        <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Right"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="60dp"
+            android:text="Reverse" />
+
+        <Button
             android:id="@+id/buttonRight"
-            android:layout_alignTop="@+id/buttonStop"
-            android:layout_toEndOf="@+id/buttonForward"
-            android:layout_marginStart="69dp" />
-
-        <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="   Stop    "
+            android:layout_above="@+id/buttonReverse"
+            android:layout_toEndOf="@+id/buttonStop"
+            android:text="Right" />
+
+        <Button
             android:id="@+id/buttonStop"
-            android:layout_alignTop="@+id/buttonLeft"
-            android:layout_alignEnd="@+id/buttonForward" />
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/buttonReverse"
+            android:layout_alignLeft="@+id/buttonReverse"
+            android:text="   Stop    " />
 
         <Button
             android:id="@+id/buttonCountDown"
-            android:text="Countdown GO"
             android:layout_width="200dp"
-            android:layout_height="50dp"
-            android:layout_alignParentRight="true"/>
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/buttonStopEverything"
+            android:layout_alignParentRight="true"
+            android:text="GO" />
+
         <Button
             android:id="@+id/buttonStopEverything"
-            android:text="Stop"
             android:layout_width="200dp"
-            android:layout_height="50dp"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/buttonSettings"
             android:layout_alignParentRight="true"
-            android:layout_below="@id/buttonCountDown"
-            android:layout_marginTop="30dp"/>
+            android:text="Stop All" />
+
         <Button
             android:id="@+id/buttonSettings"
-            android:text="Settings"
             android:layout_width="200dp"
-            android:layout_height="50dp"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/buttonAddTarget"
             android:layout_alignParentRight="true"
-            android:layout_below="@id/buttonStopEverything"
-            android:layout_marginTop="30dp"/>
+            android:layout_marginBottom="50dp"
+            android:text="Settings" />
         <!--<Button-->
-            <!--android:id="@+id/buttonConnect"-->
-            <!--android:text="Server Start"-->
-            <!--android:layout_width="200dp"-->
-            <!--android:layout_height="50dp"-->
-            <!--android:layout_alignParentRight="true"-->
-            <!--android:layout_below="@id/buttonSettings"-->
-            <!--android:layout_marginTop="30dp"/>-->
+        <!--android:id="@+id/buttonConnect"-->
+        <!--android:text="Server Start"-->
+        <!--android:layout_width="200dp"-->
+        <!--android:layout_height="50dp"-->
+        <!--android:layout_alignParentRight="true"-->
+        <!--android:layout_below="@id/buttonSettings"-->
+        <!--android:layout_marginTop="30dp"/>-->
         <Button
             android:id="@+id/buttonClose"
-            android:text="Close"
             android:layout_width="200dp"
-            android:layout_height="50dp"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
             android:layout_alignParentRight="true"
-            android:layout_alignParentBottom="true"/>
+            android:text="Close" />
+
         <Button
             android:id="@+id/buttonAddTarget"
-            android:text="Add Target"
             android:layout_width="200dp"
-            android:layout_height="50dp"
-            android:layout_alignParentRight="true"
+            android:layout_height="wrap_content"
             android:layout_above="@+id/buttonResetTargets"
-            android:layout_marginBottom="30dp"/>
+            android:layout_alignParentRight="true"
+            android:text="Add Target" />
+
         <Button
             android:id="@+id/buttonResetTargets"
-            android:text="Clear Targets"
             android:layout_width="200dp"
-            android:layout_height="50dp"
-            android:layout_alignParentRight="true"
+            android:layout_height="wrap_content"
             android:layout_above="@+id/buttonClose"
-            android:layout_marginBottom="30dp"/>
+            android:layout_alignParentRight="true"
+            android:text="Clear Targets" />
+
         <Button
             android:id="@+id/buttonLearnADF"
-            android:text="Learn ADF"
-            android:layout_width="200dp"
-            android:layout_height="50dp"
-            android:layout_alignParentBottom="true"
-            android:layout_toLeftOf="@+id/buttonClose"/>
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignBaseline="@+id/buttonSaveADF"
+            android:layout_marginLeft="40dp"
+            android:layout_toRightOf="@+id/buttonReverse"
+            android:text="Learn ADF" />
+
         <Button
             android:id="@+id/buttonSaveADF"
-            android:text="Save ADF"
-            android:layout_width="200dp"
-            android:layout_height="50dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:layout_toLeftOf="@+id/buttonLearnADF"/>
+            android:layout_marginBottom="40dp"
+            android:layout_marginRight="40dp"
+            android:layout_toLeftOf="@+id/buttonReverse"
+            android:text="Save ADF" />
+
 
     </RelativeLayout>
 

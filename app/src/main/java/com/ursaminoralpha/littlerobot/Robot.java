@@ -31,7 +31,7 @@ public class Robot{
     private Vec3 mToTarget=new Vec3(10, 10, 0);
     private double mYRot=0;
     public Settings mSettings=new Settings();
-    private OtherSerial mPortDevice;
+    private SerialPort mPortDevice;
     private boolean mLocalized=false;
 
 
@@ -67,7 +67,7 @@ public class Robot{
     }
 
     //constructor
-    public Robot(MainActivity mainAct, OtherSerial port){
+    public Robot(MainActivity mainAct, SerialPort port){
         this.mMainAct=mainAct;
         mPortDevice=port;
     }
@@ -86,7 +86,6 @@ public class Robot{
         switch(m){ // to mode
             case STOP:
                 sendManualCommand(Commands.STOP);
-                mMainAct.setSerialTitleText("Stopped", Color.BLUE);
                 break;
             case GOTOTARGET:
                 if(mTargetList.size()==0){
@@ -98,7 +97,6 @@ public class Robot{
                 mOnTargetRot=false;
                 mMainAct.speak("Going to target");
                 mMainAct.dump("Going to Target " + mCurrentTarget);
-                mMainAct.setSerialTitleText("Going to Target " + mCurrentTarget + "...", Color.BLUE);
                 break;
             case SEARCHLOC:
 //                searchForLocalization(true);
@@ -239,9 +237,6 @@ public class Robot{
         final double toDist=Math.sqrt(mToTarget.x*mToTarget.x + mToTarget.y*mToTarget.y);
         final double turnAngle=makeAngleInProperRange(toAngle - mYRot);
 
-
-        mMainAct.setDirToText(String.format("toAngle: %.3f, turnAngle: %.3f, Distance: %.3f", toAngle, turnAngle, toDist));
-
         //READY TO GO!!!
         switch(mMode){
             case GOTOTARGET:
@@ -278,14 +273,12 @@ public class Robot{
                             changeMode(Modes.STOP);
                             sendCommand(Commands.BEEPLOWHI);
                             mMainAct.dump("At Final Target");
-                            mMainAct.setSerialTitleText("At Target " + mCurrentTarget + " (End)", Color.BLUE);
                             mMainAct.speak("engaging final target");
                         }
                         return;//don't do anything else
 
                     } else{ // more targets to go
                         mMainAct.dump("Switched to Target " + mCurrentTarget);
-                        mMainAct.setSerialTitleText("Going to Target " + mCurrentTarget + "...", Color.BLUE);
                         sendCommand(Commands.BEEPLOWHI);
                         mCurrentTarget++;
                         mOnTarget=false;
@@ -416,6 +409,7 @@ public class Robot{
     public void setPose(Vec3 translation, double rotation){
         mCurTranslation=translation;
         mYRot=rotation;
+        mMainAct.mMapView.setRobot((float)translation.x,(float)translation.y,(float)rotation);
         doYourStuff();
     }
 }

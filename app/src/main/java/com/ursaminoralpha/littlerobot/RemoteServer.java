@@ -31,6 +31,9 @@ public class RemoteServer{
     ServerThread mServerThread;
     MainActivity mainActivity;
     int mPort;
+    String mIP;
+    int mConections;
+    boolean mRunning;
 
     public RemoteServer(MainActivity parent, Integer port){
         mainActivity=parent;
@@ -39,6 +42,8 @@ public class RemoteServer{
     }
 
     public void start(){
+        mIP=getIPAddress();
+        mainActivity.setServerStatus(mIP,0,false,0);
         mainActivity.dump("Starting server...\nIP " + getIPAddress() + "\nPort: "+mPort);
         new Thread(mServerThread).start();
    }
@@ -67,10 +72,10 @@ public class RemoteServer{
         }
         @Override
         public void run(){
-            mainActivity.setServerStatus("IP: " + getIPAddress() + " :" + 6242);
             try{
+                mainActivity.setServerStatus(mIP,0,true,0);
                 mServerSocket=new ServerSocket(mPort);
-                mainActivity.setServerStatus("Remote Server Listening for connection");
+                mainActivity.setServerStatus(mIP,mPort,true,0);
                 while(!mServerSocket.isClosed() && !Thread.currentThread().isInterrupted()){
                     ConnectionThread c;
                     c=new ConnectionThread(mServerSocket.accept(), true);
@@ -80,7 +85,7 @@ public class RemoteServer{
                 }
             }catch(IOException e){/*probably socket closed*/}
             stop();
-            mainActivity.setServerStatus("Remote Server Stopped");
+            mainActivity.setServerStatus(mIP,0,false,0);
         }
         //sendMessage()
         void sendMessage(String mess){
@@ -105,7 +110,7 @@ public class RemoteServer{
                 if(!d.mSocket.isClosed())
                     count++;
             }
-            mainActivity.setServerStatus(count+" Remote Connections");
+            mainActivity.setServerStatus(mIP,mPort,true,count);
         }
     }
 

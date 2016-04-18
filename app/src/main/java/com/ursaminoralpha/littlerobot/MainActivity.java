@@ -5,13 +5,19 @@ package com.ursaminoralpha.littlerobot;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.Point;
+import android.graphics.PointF;
 import android.hardware.usb.UsbManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ScrollView;
@@ -19,7 +25,7 @@ import android.widget.TextView;
 
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, SetADFNameDialog.CallbackListener{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, SetADFNameDialog.CallbackListener, StatusFragment.OnFragmentInteractionListener{
     // DEFAULT ADF FILE NAME TO INITIALLY LOAD
     String mInitialADF="lab2 30mar";
 
@@ -27,11 +33,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     RemoteServer mRemoteServer;
 
     //UI Stuff
-    TextView mSerialTitle;
-    TextView mTangoTitle;
     TextView mDumpTextView;
-    TextView mTranslationTextView, mRotationTextView, mStatusTextView, mDirToTextView;
     ScrollView mDumpScroll;
+    public StatusFragment mStatusFrag;
 
     //USB Serial Stuff
     UsbManager mUsbManager;
@@ -39,9 +43,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     TextToSpeech ttobj;
 
-    OtherSerial mSerialPort;
+    SerialPort mSerialPort;
     Robot mRobot;
-//    TheTango mTango;
+    MapView mMapView;
+    TheTango mTango;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -52,21 +57,29 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(android.R.id.content).setKeepScreenOn(true);
 
         //UI Setup
+
+        //mMapView=new MapView(this);
+
         setContentView(R.layout.activity_main);
+
+        mMapView=(MapView)findViewById(R.id.imageMap);
+
         Toolbar toolbar=(Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         setTitle("Little Robot");
 
         //status TextViews
-        mTangoTitle=(TextView)findViewById(R.id.tangoTitle);
-        mSerialTitle=(TextView)findViewById(R.id.serialTitle);
         mDumpTextView=(TextView)findViewById(R.id.consoleText);
         mDumpScroll=(ScrollView)findViewById(R.id.scroller);
+        mStatusFrag=(StatusFragment)getSupportFragmentManager().findFragmentById(R.id.status);
+
+        mStatusFrag.ADFName(mInitialADF);
+      //  mStatusFrag.localized(mTango.mLocalized);
 
         //initialize Remote control server
         mRemoteServer=new RemoteServer(this,6242);
 
-        mSerialPort= new OtherSerial(this);
+        mSerialPort= new SerialPort(this);
 
         //Robot
         mRobot=new Robot(this, mSerialPort);
@@ -76,7 +89,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-//        mTango=new TheTango(this,false,mInitialADF,mRobot);
+        mTango=new TheTango(this,false,mInitialADF,mRobot);
 
 
 
@@ -97,10 +110,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(R.id.buttonSaveADF).setOnClickListener(this);
         //findViewById(R.id.buttonConnect).setOnClickListener(this);
 
-        mTranslationTextView=(TextView)findViewById(R.id.translation_textview);
-        mRotationTextView=(TextView)findViewById(R.id.rotation_textview);
-        mStatusTextView=(TextView)findViewById(R.id.status_textview);
-        mDirToTextView=(TextView)findViewById(R.id.dirTo_textview);
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
@@ -108,24 +117,62 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 dump("TTS initialized");
             }
         });
+
+//
+//        mMapView.addTarget(new PointF(-1,-1), Color.RED);
+//        mMapView.addTarget(new PointF(-1,1), Color.GREEN);
+//        mMapView.addTarget(new PointF(1,1), Color.BLUE);
+//        mMapView.addTarget(new PointF(1,-1), Color.BLACK);
+//
+//        mMapView.addTarget(new PointF(-9,-3),Color.RED);
+//        mMapView.addTarget(new PointF(-9,3), Color.GREEN);
+//        mMapView.addTarget(new PointF(9,3), Color.BLUE);
+//        mMapView.addTarget(new PointF(9,-3), Color.BLACK);
+
+
+//        mMapView.addTarget(new PointF(0,0), Color.MAGENTA);
+
+
+
     }
 
+
     @Override
-    protected void onResume(){
-        super.onResume();
+    protected void onStart(){
+        Log.e("TAG","onStart");
+        super.onStart();
         mRemoteServer.start();
         mSerialPort.open();
 //        mTango.start();
     }
-
     @Override
-    protected void onPause(){
+    protected void onStop(){
+        Log.e("TAG","onStop");
+        super.onStop();
         mDumpTextView.append("Pausing...\n");
         mRemoteServer.sendMessage("Server Pausing, will need to reconnect remote");
         mRemoteServer.stop();
         mRobot.stop(); //better stop the robot!
         mSerialPort.close();
 //        mTango.stopTango();
+    }
+   @Override
+    protected void onDestroy(){
+       Log.e("TAG", "onDestroy");
+       super.onDestroy();
+       if(mSerialPort != null)
+           unregisterReceiver(mSerialPort.broadcastReceiver);
+   }
+
+    @Override
+    protected void onResume(){
+        Log.e("TAG","onResume");
+        super.onResume();
+    }
+
+    @Override
+    protected void onPause(){
+        Log.e("TAG","onPause");
         super.onPause();
     }
 
@@ -134,64 +181,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void run(){
                 ttobj.speak(s, TextToSpeech.QUEUE_FLUSH, null);
-            }
-        });
-    }
-
-    void setTangoTitleColor(final int color){
-        runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
-                mTangoTitle.setTextColor(color);
-            }
-        });
-    }
-    public void setTangoTitleText(final String s){
-        runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
-                mTangoTitle.setText(s);
-            }
-        });
-    }
-    public void setSerialTitleText(final String s,final int color){
-        runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
-                mSerialTitle.setTextColor(color);
-                mSerialTitle.setText(s);
-            }
-        });
-    }
-    public void setTranslationText(final String s){
-        runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
-                mTranslationTextView.setText(s);
-            }
-        });
-    }
-    public void setRotationText(final String s){
-        runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
-                mRotationTextView.setText(s);
-            }
-        });
-    }
-    public void setStatusText(final String s){
-        runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
-                mStatusTextView.setText(s);
-            }
-        });
-    }
-    public void setDirToText(final String s){
-        runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
-                mDirToTextView.setText(s);
             }
         });
     }
@@ -293,6 +282,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     ((Button)findViewById(R.id.buttonLearnADF)).setText("Learn ADF");
                     sendToRemote("Learning Mode Off");
                 }
+                mStatusFrag.learning(learningMode);
             }
         });
     }
@@ -310,7 +300,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onAdfNameOk(String name, String uuid) {
-//        mTango.saveADF(name);
+        mTango.saveADF(name);
     }
 
     @Override
@@ -318,20 +308,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public void actionSaveADF(){
-//        if(mTango.isLearningMode()){
-//            mRobot.changeMode(Robot.Modes.STOP);
-//            showSetADFNameDialog();
-//        }else{
-//            dump("Not Learning");
-//        }
+        if(mTango.isLearningMode()){
+            mRobot.changeMode(Robot.Modes.STOP);
+            showSetADFNameDialog();
+        }else{
+            dump("Not Learning");
+        }
     }
 
     // call from RemoteServer to update it's status
-    public void setServerStatus(final String status){
+    public void setServerStatus(final String ip, final int port,
+                                final boolean running, final int connections){
         runOnUiThread(new Runnable(){
             @Override
             public void run(){
-                setTitle(status);
+                //setTitle(""+connections);
+                mStatusFrag.remoteIP(ip);
+                mStatusFrag.remotePort(port);
+                mStatusFrag.remoteConnections(connections);
+                mStatusFrag.remoteRunning(running);
+            }
+        });
+    }
+    public void setSerialStatus(final boolean found, final boolean connected){
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                mStatusFrag.serialFound(found);
+                mStatusFrag.serialCon(connected);
             }
         });
     }
@@ -426,5 +430,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    @Override
+    public void onNewIntent(Intent intent){
+        super.onNewIntent(intent);
+    }
 
+    @Override
+    public void onFragmentInteraction(Uri uri){
+    }
 }

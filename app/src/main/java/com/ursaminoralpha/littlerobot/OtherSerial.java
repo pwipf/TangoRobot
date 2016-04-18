@@ -44,7 +44,6 @@ public class OtherSerial{
 
     public void getDevice() {
         HashMap<String,UsbDevice> usbDevices = mUsbManager.getDeviceList();
-        mMainAct.setSerialTitleText("Looking For USB Serial Device...", Color.BLACK);
         if (!usbDevices.isEmpty()) {
             boolean keep = true;
             for (Map.Entry<String, UsbDevice> entry : usbDevices.entrySet()) {
@@ -69,8 +68,6 @@ public class OtherSerial{
                 if (!keep)
                     break;
             }
-        }else{
-            mMainAct.setSerialTitleText("No Serial.",Color.rgb(180,0,0));
         }
     }
 
@@ -94,7 +91,6 @@ public class OtherSerial{
                             mPort.setFlowControl(UsbSerialInterface.FLOW_CONTROL_OFF);
                             mPort.read(mCallback);
                             mMainAct.dump("Serial Connection Opened!");
-                            mMainAct.setSerialTitleText("Serial Port Ready",Color.rgb(0,180,0));
 
                         } else {
                             Log.d("SERIAL", "PORT NOT OPEN");
