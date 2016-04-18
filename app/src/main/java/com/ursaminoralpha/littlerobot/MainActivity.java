@@ -25,17 +25,17 @@ import android.widget.TextView;
 
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, SetADFNameDialog.CallbackListener, StatusFragment.OnFragmentInteractionListener{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, SetADFNameDialog.CallbackListener, StatusFragment.OnFragmentInteractionListener {
     // DEFAULT ADF FILE NAME TO INITIALLY LOAD
-    String mInitialADF="lab2 30mar";
+    String mInitialADF = "lab2 30mar";
 
     // remote control server
     RemoteServer mRemoteServer;
 
     //UI Stuff
-    TextView mDumpTextView;
-    ScrollView mDumpScroll;
-    public StatusFragment mStatusFrag;
+    private TextView mDumpTextView;
+    private ScrollView mDumpScroll;
+    private StatusFragment mStatusFrag;
 
     //USB Serial Stuff
     UsbManager mUsbManager;
@@ -49,7 +49,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     TheTango mTango;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState){
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // read settings
 
@@ -62,36 +62,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         setContentView(R.layout.activity_main);
 
-        mMapView=(MapView)findViewById(R.id.imageMap);
+        mMapView = (MapView) findViewById(R.id.imageMap);
 
-        Toolbar toolbar=(Toolbar)findViewById(R.id.toolbar);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         setTitle("Little Robot");
 
         //status TextViews
-        mDumpTextView=(TextView)findViewById(R.id.consoleText);
-        mDumpScroll=(ScrollView)findViewById(R.id.scroller);
-        mStatusFrag=(StatusFragment)getSupportFragmentManager().findFragmentById(R.id.status);
+        mDumpTextView = (TextView) findViewById(R.id.consoleText);
+        mDumpScroll = (ScrollView) findViewById(R.id.scroller);
+        mStatusFrag = (StatusFragment) getSupportFragmentManager().findFragmentById(R.id.status);
 
         mStatusFrag.ADFName(mInitialADF);
-      //  mStatusFrag.localized(mTango.mLocalized);
+        //  mStatusFrag.localized(mTango.mLocalized);
 
         //initialize Remote control server
-        mRemoteServer=new RemoteServer(this,6242);
+        mRemoteServer = new RemoteServer(this, 6242);
 
-        mSerialPort= new SerialPort(this);
+        mSerialPort = new SerialPort(this);
 
         //Robot
-        mRobot=new Robot(this, mSerialPort);
+        mRobot = new Robot(this, mSerialPort);
 
         //have to load prefs after creating robot
         readPrefs();
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango=new TheTango(this,false,mInitialADF,mRobot);
-
-
+        mTango = new TheTango(this, false, mInitialADF, mRobot);
 
 
         //Buttons Setup
@@ -111,43 +109,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //findViewById(R.id.buttonConnect).setOnClickListener(this);
 
 
-        ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+        ttobj = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
                 dump("TTS initialized");
             }
         });
-
-//
-//        mMapView.addTarget(new PointF(-1,-1), Color.RED);
-//        mMapView.addTarget(new PointF(-1,1), Color.GREEN);
-//        mMapView.addTarget(new PointF(1,1), Color.BLUE);
-//        mMapView.addTarget(new PointF(1,-1), Color.BLACK);
-//
-//        mMapView.addTarget(new PointF(-9,-3),Color.RED);
-//        mMapView.addTarget(new PointF(-9,3), Color.GREEN);
-//        mMapView.addTarget(new PointF(9,3), Color.BLUE);
-//        mMapView.addTarget(new PointF(9,-3), Color.BLACK);
-
-
-//        mMapView.addTarget(new PointF(0,0), Color.MAGENTA);
-
-
-
     }
 
 
     @Override
-    protected void onStart(){
-        Log.e("TAG","onStart");
+    protected void onStart() {
+        Log.e("TAG", "onStart");
         super.onStart();
         mRemoteServer.start();
         mSerialPort.open();
 //        mTango.start();
     }
+
     @Override
-    protected void onStop(){
-        Log.e("TAG","onStop");
+    protected void onStop() {
+        Log.e("TAG", "onStop");
         super.onStop();
         mDumpTextView.append("Pausing...\n");
         mRemoteServer.sendMessage("Server Pausing, will need to reconnect remote");
@@ -156,39 +138,40 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mSerialPort.close();
 //        mTango.stopTango();
     }
-   @Override
-    protected void onDestroy(){
-       Log.e("TAG", "onDestroy");
-       super.onDestroy();
-       if(mSerialPort != null)
-           unregisterReceiver(mSerialPort.broadcastReceiver);
-   }
 
     @Override
-    protected void onResume(){
-        Log.e("TAG","onResume");
+    protected void onDestroy() {
+        Log.e("TAG", "onDestroy");
+        super.onDestroy();
+        if (mSerialPort != null)
+            unregisterReceiver(mSerialPort.broadcastReceiver);
+    }
+
+    @Override
+    protected void onResume() {
+        Log.e("TAG", "onResume");
         super.onResume();
     }
 
     @Override
-    protected void onPause(){
-        Log.e("TAG","onPause");
+    protected void onPause() {
+        Log.e("TAG", "onPause");
         super.onPause();
     }
 
-    public void speak(final String s){
-        runOnUiThread(new Runnable(){
+    public void speak(final String s) {
+        runOnUiThread(new Runnable() {
             @Override
-            public void run(){
+            public void run() {
                 ttobj.speak(s, TextToSpeech.QUEUE_FLUSH, null);
             }
         });
     }
 
-    public void dump(final String s){
-        runOnUiThread(new Runnable(){
+    public void dump(final String s) {
+        runOnUiThread(new Runnable() {
             @Override
-            public void run(){
+            public void run() {
                 mDumpTextView.append(s + "\n");
                 mDumpScroll.fullScroll(View.FOCUS_DOWN);
 
@@ -198,15 +181,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
 
-    public void sendToRemote(String s){
+    public void sendToRemote(String s) {
         mRemoteServer.sendMessage(s);
     }
 
     @Override
-    public void onClick(View view){
+    public void onClick(View view) {
 
         mRobot.sendManualCommand(Commands.BEEPLOW);
-        switch(view.getId()){
+        switch (view.getId()) {
             case R.id.buttonForward:
                 mRobot.sendManualCommand(Commands.FORWARD);
                 break;
@@ -232,8 +215,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 actionClearTargets();
                 break;
             case R.id.buttonSettings:
-                Intent i=new Intent(this, SettingsActivity.class);
-                i.putExtra("settings",mRobot.mSettings);
+                Intent i = new Intent(this, SettingsActivity.class);
+                i.putExtra("settings", mRobot.mSettings);
                 startActivityForResult(i, 1);
                 break;
             //Not using a button anymore to start remote server, starts automatically in onResume()
@@ -259,27 +242,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    public void actionLearnADF(){
-        runOnUiThread(new Runnable(){
+    public void actionLearnADF() {
+        runOnUiThread(new Runnable() {
             @Override
-            public void run(){
-//                if(!mTango.isLearningMode())
-//                    mTango.startLearnADFmode(null);
-//                else
-//                    mTango.stopLearnADFmode(mTango.getUUIDFromADFFileName(mInitialADF));
+            public void run() {
+                if (!mTango.isLearningMode())
+                    mTango.startLearnADFmode(null);
+                else
+                    mTango.stopLearnADFmode(mTango.getUUIDFromADFFileName(mInitialADF));
             }
         });
     }
 
-    public void setLearningStatus(final boolean learningMode){
-        runOnUiThread(new Runnable(){
+    public void setLearningStatus(final boolean learningMode) {
+        runOnUiThread(new Runnable() {
             @Override
-            public void run(){
-                if(learningMode){
-                    ((Button)findViewById(R.id.buttonLearnADF)).setText("Cancel Learning");
+            public void run() {
+                if (learningMode) {
+                    ((Button) findViewById(R.id.buttonLearnADF)).setText("Cancel Learning");
                     sendToRemote("Learning Mode On");
-                } else{
-                    ((Button)findViewById(R.id.buttonLearnADF)).setText("Learn ADF");
+                } else {
+                    ((Button) findViewById(R.id.buttonLearnADF)).setText("Learn ADF");
                     sendToRemote("Learning Mode Off");
                 }
                 mStatusFrag.learning(learningMode);
@@ -304,24 +287,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override
-    public void onAdfNameCancelled(){
+    public void onAdfNameCancelled() {
     }
 
-    public void actionSaveADF(){
-        if(mTango.isLearningMode()){
+    public void actionSaveADF() {
+        if (mTango.isLearningMode()) {
             mRobot.changeMode(Robot.Modes.STOP);
             showSetADFNameDialog();
-        }else{
+        } else {
             dump("Not Learning");
         }
     }
 
     // call from RemoteServer to update it's status
     public void setServerStatus(final String ip, final int port,
-                                final boolean running, final int connections){
-        runOnUiThread(new Runnable(){
+                                final boolean running, final int connections) {
+        runOnUiThread(new Runnable() {
             @Override
-            public void run(){
+            public void run() {
                 //setTitle(""+connections);
                 mStatusFrag.remoteIP(ip);
                 mStatusFrag.remotePort(port);
@@ -330,12 +313,32 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         });
     }
-    public void setSerialStatus(final boolean found, final boolean connected){
-        runOnUiThread(new Runnable(){
+
+    public void setSerialStatus(final boolean found, final boolean connected) {
+        runOnUiThread(new Runnable() {
             @Override
-            public void run(){
+            public void run() {
                 mStatusFrag.serialFound(found);
                 mStatusFrag.serialCon(connected);
+            }
+        });
+    }
+
+
+    public void setTangoStatus(final boolean localized, final String status) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mStatusFrag.localized(localized);
+                mStatusFrag.poseStatus(status);
+            }
+        });
+    }
+    public void setPoseStatus(final Vec3 trans, final float rot){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mStatusFrag.setPose(trans,rot);
             }
         });
     }

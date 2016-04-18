@@ -232,8 +232,7 @@ public class TheTango{
                 }
 
                 if(changed){
-                    mMainAct.mStatusFrag.localized(mLocalized);
-                    mMainAct.mStatusFrag.poseStatus(statusText(mStatus));
+                    mMainAct.setTangoStatus(mLocalized,statusText(mStatus));
                 }
 
                 if(pose.baseFrame==TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
@@ -259,7 +258,7 @@ public class TheTango{
                     rot=makeAngleInProperRange(rot + Math.PI/2);
 
                     Vec3 translation=new Vec3(pose.translation);
-                    mMainAct.mStatusFrag.setPose(translation,rot);
+                    mMainAct.setPoseStatus(translation,(float)rot);
 
                     //update robot localization status if changed
                     if(mLocalized != mRobot.isLocalized()){
@@ -298,10 +297,9 @@ public class TheTango{
                 return "INVALID";
             case TangoPoseData.POSE_VALID:
                 return "VALID";
-            case TangoPoseData.POSE_UNKNOWN:
+            default:
                 return "UNKNOWN";
         }
-        return "OTHER";
     }
 
     public void saveADF(final String fileName){
