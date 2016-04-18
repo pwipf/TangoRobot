@@ -5,11 +5,7 @@ package com.ursaminoralpha.littlerobot;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.Point;
-import android.graphics.PointF;
 import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -123,8 +119,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Log.e("TAG", "onStart");
         super.onStart();
         mRemoteServer.start();
-        mSerialPort.open();
-//        mTango.start();
+        mTango.start();
     }
 
     @Override
@@ -135,8 +130,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mRemoteServer.sendMessage("Server Pausing, will need to reconnect remote");
         mRemoteServer.stop();
         mRobot.stop(); //better stop the robot!
-        mSerialPort.close();
-//        mTango.stopTango();
+        mTango.stop();
     }
 
     @Override
@@ -151,12 +145,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onResume() {
         Log.e("TAG", "onResume");
         super.onResume();
+        mSerialPort.open();
     }
 
     @Override
     protected void onPause() {
         Log.e("TAG", "onPause");
         super.onPause();
+        mSerialPort.close();
     }
 
     public void speak(final String s) {
@@ -339,6 +335,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void run() {
                 mStatusFrag.setPose(trans,rot);
+            }
+        });
+    }
+    public void setStatusADFName(final String name){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mStatusFrag.ADFName(name);
             }
         });
     }

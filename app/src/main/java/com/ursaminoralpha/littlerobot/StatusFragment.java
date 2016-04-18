@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,7 +29,7 @@ public class StatusFragment extends Fragment{
         String adfName="";
         boolean localized;
         boolean learning;
-        String poseStatus;
+        String poseStatus="";
         Vec3 position=new Vec3();
         double rotation;
         boolean serialFound;
@@ -52,6 +53,9 @@ public class StatusFragment extends Fragment{
         mStat.adfName=s;
         FragmentActivity act=getActivity();
         if(act==null)return;
+
+        ((TextView)act.findViewById(R.id.statusADBName)).setTextColor
+                (mStat.adfName.equals("NOT FOUND")? RED:GREEN);
         ((TextView)act.findViewById(R.id.statusADBName)).setText(mStat.adfName);
     }
     public void localized(boolean s){
@@ -136,6 +140,8 @@ public class StatusFragment extends Fragment{
     public void setPose(Vec3 position, double rotation){
         FragmentActivity act=getActivity();
         if(act==null)return;
+        mStat.position=position;
+        mStat.rotation=rotation;
         ((TextView)act.findViewById(R.id.statusTranslation)).setText(mStat.position.toString());
         ((TextView)act.findViewById(R.id.statusRotation)).setText(String.format("%.1f",mStat.rotation*(180/Math.PI)));
     }

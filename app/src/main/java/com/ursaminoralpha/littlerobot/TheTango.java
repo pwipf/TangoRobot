@@ -1,6 +1,5 @@
 package com.ursaminoralpha.littlerobot;
 
-import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.SystemClock;
 
@@ -36,6 +35,7 @@ public class TheTango{
     private static AsyncTask mSaveTask;
     private static AsyncTask mPermissionsTask;
     private static String mLastUUID;
+    private static String mLastADFFilename;
     private Robot mRobot;
 
     TheTango(MainActivity mainActivity, final boolean learningMode, final String adfName, Robot robot){
@@ -47,6 +47,12 @@ public class TheTango{
                     (Tango.getRequestPermissionIntent(Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), 0);
         }
 
+
+//        mPermissionsReady=true;
+//        mTangoReady=true;
+//        mTango=new Tango(mMainAct);
+//        mLastUUID=getUUIDFromADFFileName(adfName);
+
         mTango=new Tango(mMainAct, new Runnable(){
             @Override
             public void run(){
@@ -55,6 +61,9 @@ public class TheTango{
             }
         });
 
+
+        //Why??? does not find any saved UUIDs later without this line. I don't know why.
+        mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
         mPermissionsTask = new AsyncTask<Void,Void,Integer>(){
             @Override
             protected Integer doInBackground(Void... params){
@@ -69,7 +78,7 @@ public class TheTango{
                 if(!Tango.hasPermission(mMainAct, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
                     mMainAct.dump("Could not get ADF Permission");
                 }
-                mPermissionsReady=true; // if no permissions, no adf, but still ready to go!
+                mPermissionsReady=true;
                 startTangoWithADF(learningMode,adfName);
                 return 0;
             }
@@ -77,7 +86,8 @@ public class TheTango{
     }
 
     public String getUUIDFromADFFileName(String fileName){
-        if(Tango.hasPermission(mMainAct, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
+        mMainAct.dump("looking for adf from uuid");
+        //if(Tango.hasPermission(mMainAct, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
             ArrayList<String> fullUUIDList=mTango.listAreaDescriptions();
             if(fullUUIDList.size()>0){
                 for(String uuid : fullUUIDList){
@@ -91,11 +101,12 @@ public class TheTango{
                 mMainAct.dump("Could not find ADF " + fileName);
             }else
                 mMainAct.dump("NO ADFs Found");
-        }
         return null;
-    }
+        }
 
-    private void startTangoWithADF(boolean learningMode, String adfFileName){
+
+
+    public void startTangoWithADF(boolean learningMode, String adfFileName){
         if(!mIsTangoServiceConnected && mPermissionsReady){
             startTangoWithAdfUUID(learningMode,getUUIDFromADFFileName(adfFileName));
         }
@@ -103,18 +114,19 @@ public class TheTango{
 
     public void start(){
         startTangoWithAdfUUID(mLearningMode,mLastUUID);
+        mMainAct.dump("Starting with learning: "+mLearningMode);
+        mMainAct.dump("UUID: "+mLastUUID);
     }
     //This starts the tango service
-    //synchronized because of the mIsTangoServiceConnected flag
-    private synchronized void startTangoWithAdfUUID(boolean learningMode, String adfUUID){
+    private void startTangoWithAdfUUID(boolean learningMode, String adfUUID){
         if(!mIsTangoServiceConnected && mPermissionsReady){
-            String tempName;
             //set tango config
             TangoConfig config=mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
             config.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, learningMode);
             config.putString(TangoConfig.KEY_STRING_AREADESCRIPTION,adfUUID==null? "" : adfUUID);
 
             // get the name of the ADF set in mConfig to store in mCurrentADFName
+            String tempName;
             String uuid=config.getString(TangoConfig.KEY_STRING_AREADESCRIPTION);
             if(uuid == null || uuid.length() == 0){
                 tempName="NOT USING";
@@ -122,6 +134,7 @@ public class TheTango{
                 byte[] n=mTango.loadAreaDescriptionMetaData(uuid).get(TangoAreaDescriptionMetaData.KEY_NAME);
                 tempName= (n==null? "NOT FOUND" : new String(n));
             }
+            mMainAct.setStatusADFName(tempName);
 
             // try to set listeners and start service
             try{
@@ -142,11 +155,11 @@ public class TheTango{
     }
 
 
-    public void stopTango(){
+    public void stop(){
+        disconnectTango();
         if(mPermissionsTask!=null && mPermissionsTask.getStatus()!=AsyncTask.Status.FINISHED)
             mPermissionsTask.cancel(true);
         if(mIsTangoServiceConnected){
-
             if(mSaveTask != null && mSaveTask.getStatus() != AsyncTask.Status.FINISHED){
                 new AsyncTask<Void,Void,Void>(){
                     @Override
@@ -166,19 +179,21 @@ public class TheTango{
         }
     }
     private void disconnectTango(){
-        try{
-            mTango.disconnect();
-            mIsTangoServiceConnected=false;
-            mLearningMode=false;
-            mMainAct.setLearningStatus(mLearningMode);
-            mMainAct.dump("Tango Service Disconnect");
-        }catch(TangoErrorException e){
-            mMainAct.dump("Tango Error!");
+        if(mIsTangoServiceConnected) {
+            try {
+                mTango.disconnect();
+                mIsTangoServiceConnected = false;
+                mLearningMode = false;
+                mMainAct.setLearningStatus(mLearningMode);
+                mMainAct.dump("Tango Service Disconnect");
+            } catch (TangoErrorException e) {
+                mMainAct.dump("Tango Error!");
+            }
         }
     }
 
     void restartTango(boolean learningMode, String adfUUID){
-        stopTango();
+        stop();
         startTangoWithAdfUUID(learningMode,adfUUID);
     }
 
@@ -264,6 +279,7 @@ public class TheTango{
                     if(mLocalized != mRobot.isLocalized()){
                         mRobot.setLocalized(mLocalized);
                     }
+
                     mRobot.setPose(translation,rot);
                 }
             }
@@ -275,7 +291,7 @@ public class TheTango{
 
             @Override
             public void onTangoEvent(final TangoEvent e){
-                if(e.eventType!=TangoEvent.EVENT_FISHEYE_CAMERA){
+                if(e.eventType!=TangoEvent.EVENT_FISHEYE_CAMERA && e.eventType!=TangoEvent.EVENT_FEATURE_TRACKING){
                     mMainAct.dump(e.eventKey + ": " + e.eventValue);
                 }
             }

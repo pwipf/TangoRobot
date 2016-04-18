@@ -63,10 +63,15 @@ public class MapView extends View implements View.OnTouchListener{
         mRobotLoc.y=y;
         mRobotRot=rot;
 
+        rot*=180/Math.PI;
+        rot=rot-90;
+
         mRobotModel=new Matrix();
         mRobotModel.setScale(.1f,.1f);
         mRobotModel.postRotate(rot);
         mRobotModel.postTranslate(x,y);
+
+        postInvalidate();
     }
 
     @Override
