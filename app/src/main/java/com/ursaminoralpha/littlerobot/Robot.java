@@ -17,10 +17,14 @@ public class Robot{
     private class Target{
         Vec3 pos;
         double rot;
+
         Target(Vec3 p, double r){
-            pos=p; rot=r;
+            pos=p;
+            rot=r;
         }
-    };
+    }
+
+    ;
 
     private ArrayList<Target> mTargetList=new ArrayList<>();
     private static int mCurrentTarget=0;
@@ -88,7 +92,7 @@ public class Robot{
                 sendManualCommand(Commands.STOP);
                 break;
             case GOTOTARGET:
-                if(mTargetList.size()==0){
+                if(mTargetList.size() == 0){
                     mMainAct.dump("No Targets");
                     return;
                 }
@@ -124,6 +128,7 @@ public class Robot{
         mTargetList.clear();
         changeMode(Modes.STOP);
     }
+
     public void stopEverything(){
         mCurrentTarget=0;
         changeMode(Modes.STOP);
@@ -157,11 +162,11 @@ public class Robot{
 
     private void sendCommandX(Commands c, boolean force){
 
-        if(c==mMovingState && !force)
+        if(c == mMovingState && !force)
             return;
-        if(c==Commands.FORWARD || c==Commands.STOP
-                || c==Commands.SPINRIGHT || c==Commands.SPINLEFT
-                || c==Commands.HALFRIGHT || c==Commands.HALFLEFT)
+        if(c == Commands.FORWARD || c == Commands.STOP
+                || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
+                || c == Commands.HALFRIGHT || c == Commands.HALFLEFT)
             mMovingState=c;
 
         byte buf[]=new byte[2];
@@ -215,22 +220,23 @@ public class Robot{
             }
 
             // actually send the command over the port
-            n=mPortDevice.send(new String(buf),1000);
+            n=mPortDevice.send(new String(buf), 1000);
         }
 
         //output an info message
         if(n>0){
             mMainAct.dump(c + " sent");
-        } else{
+        }else{
             mMainAct.dump("Tried to send " + c);
         }
     }
+
     //This is the interesting stuff, called each time the pose data is updated
     //this is called from pose listener thread, NOT UI
     private void doYourStuff(){
         if(mTargetList.size()>0){
             mToTarget=mTargetList.get(mCurrentTarget).pos.subtract(mCurTranslation);
-        } else
+        }else
             mToTarget=new Target(new Vec3(0, 0, 0), 0).pos.subtract(mCurTranslation);
 
         final double toAngle=Math.atan2(mToTarget.y, mToTarget.x);
@@ -257,7 +263,7 @@ public class Robot{
     private void goToTarget(double toDist){
         try{
             //check for errors, just in case, shouldn't be "going to target" in this case
-            if(mTargetList.size()==0 || mCurrentTarget>=mTargetList.size()){
+            if(mTargetList.size() == 0 || mCurrentTarget>=mTargetList.size()){
                 changeMode(Modes.STOP);
                 return;
             }
@@ -266,7 +272,7 @@ public class Robot{
             //if last target.  First check if the distance is too large and we are NOT on target
             if(mOnTarget){
                 if(toDist<mSettings.threshDistBig){ //on target don't move
-                    if(mCurrentTarget==mTargetList.size() - 1){ // on last target
+                    if(mCurrentTarget == mTargetList.size() - 1){ // on last target
                         if(mUseTargetRotation && !mOnTargetRot)
                             changeDirection(mTargetList.get(mCurrentTarget).rot, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
@@ -277,7 +283,7 @@ public class Robot{
                         }
                         return;//don't do anything else
 
-                    } else{ // more targets to go
+                    }else{ // more targets to go
                         mMainAct.dump("Switched to Target " + mCurrentTarget);
                         sendCommand(Commands.BEEPLOWHI);
                         mCurrentTarget++;
@@ -286,7 +292,7 @@ public class Robot{
                         mMainAct.speak("going to next target");
                         return;
                     }
-                } else{// not on target
+                }else{// not on target
                     mOnTarget=false;
                     mOnTargetRot=false;
                 }
@@ -305,7 +311,7 @@ public class Robot{
             double toAngle=Math.atan2(mToTarget.y, mToTarget.x);
             changeDirection(toAngle, Commands.FORWARD);
 
-        } catch(Exception e){
+        }catch(Exception e){
             mMainAct.dump("goToTarget() exception: " + e.getMessage());
         }
     }
@@ -347,7 +353,6 @@ public class Robot{
     }
 
 
-
     ///Search for Localization
     // in theory go in bigger and bigger  circles to get localized
     // not really working yet... works a bit
@@ -355,6 +360,7 @@ public class Robot{
     static int gSearchMode;
     static double gRadius;
     static int gCircleMode;
+
     private void searchForLocalization(boolean reset){
         if(reset){
             gSearchMode=0;
@@ -364,30 +370,30 @@ public class Robot{
             return;
         }
 
-        long curTime = System.currentTimeMillis();
+        long curTime=System.currentTimeMillis();
 
         if(curTime>gTriggerTime){
             switch(gSearchMode){
                 case 0:
                     sendCommand(Commands.SPINRIGHT);
                     gSearchMode=1;
-                    gTriggerTime=curTime+3000;
+                    gTriggerTime=curTime + 3000;
                     break;
                 case 1:
                     sendCommand(Commands.SPINLEFT);
                     gSearchMode=2;
-                    gTriggerTime=curTime+3000;
+                    gTriggerTime=curTime + 3000;
                     break;
                 case 2:
                     switch(gCircleMode){
                         case 0:
                             sendCommand(Commands.FORWARD);
-                            gTriggerTime=curTime+1000+(int)(gRadius*1000);
+                            gTriggerTime=curTime + 1000 + (int)(gRadius*1000);
                             gCircleMode=1;
                             break;
                         case 1:
                             sendCommand(Commands.SPINLEFT);
-                            gTriggerTime=curTime+(int)(1000/(gRadius));
+                            gTriggerTime=curTime + (int)(1000/(gRadius));
                             gCircleMode=0;
                             gRadius*=1.5;
                             break;
@@ -409,7 +415,7 @@ public class Robot{
     public void setPose(Vec3 translation, double rotation){
         mCurTranslation=translation;
         mYRot=rotation;
-        mMainAct.mMapView.setRobot((float)translation.x,(float)translation.y,(float)rotation);
+        mMainAct.mMapView.setRobot((float)translation.x, (float)translation.y, (float)rotation);
         doYourStuff();
     }
 }

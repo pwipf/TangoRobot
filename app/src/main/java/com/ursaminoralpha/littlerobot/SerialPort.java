@@ -130,7 +130,7 @@ public class SerialPort{
         if(connection!=null){
             try{
                 result.open(connection);
-                result.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);///////////////////////////////////////// TODO: change back to 115200
+                result.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);///////////////////////////////////////// TODO: change back to 115200
                 mMainAct.setSerialStatus(true,true);
                 mPort=result;
                 startMan();
