@@ -50,7 +50,7 @@
                     android:id="@+id/status"
                     android:name="com.ursaminoralpha.littlerobot.StatusFragment"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
                     tools:layout="@layout/fragment_status" />
             </ScrollView>
 
@@ -58,8 +58,6 @@
                 android:id="@+id/imageMap"
                 android:layout_width="0dp"
                 android:layout_height="300dp"
-                android:layout_alignParentTop="true"
-                android:layout_toRightOf="@id/status"
                 android:layout_weight="1"/>
 
         </LinearLayout>
@@ -94,6 +92,7 @@
 
         <Button
             android:id="@+id/buttonForward"
+            android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonStop"
@@ -102,6 +101,7 @@
 
         <Button
             android:id="@+id/buttonLeft"
+            android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonReverse"
@@ -110,6 +110,7 @@
 
         <Button
             android:id="@+id/buttonReverse"
+            android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
@@ -119,6 +120,7 @@
 
         <Button
             android:id="@+id/buttonRight"
+            android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonReverse"
@@ -127,6 +129,7 @@
 
         <Button
             android:id="@+id/buttonStop"
+            android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonReverse"
@@ -135,6 +138,7 @@
 
         <Button
             android:id="@+id/buttonCountDown"
+            android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonStopEverything"
@@ -143,6 +147,7 @@
 
         <Button
             android:id="@+id/buttonStopEverything"
+            android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonSettings"
@@ -151,6 +156,7 @@
 
         <Button
             android:id="@+id/buttonSettings"
+            android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonAddTarget"
@@ -159,6 +165,7 @@
             android:text="Settings" />
         <!--<Button-->
         <!--android:id="@+id/buttonConnect"-->
+        <!--android:onClick="onClick"-->
         <!--android:text="Server Start"-->
         <!--android:layout_width="200dp"-->
         <!--android:layout_height="50dp"-->
@@ -167,6 +174,7 @@
         <!--android:layout_marginTop="30dp"/>-->
         <Button
             android:id="@+id/buttonClose"
+            android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
@@ -175,6 +183,7 @@
 
         <Button
             android:id="@+id/buttonAddTarget"
+            android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonResetTargets"
@@ -183,6 +192,7 @@
 
         <Button
             android:id="@+id/buttonResetTargets"
+            android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonClose"
@@ -191,6 +201,7 @@
 
         <Button
             android:id="@+id/buttonLearnADF"
+            android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignBaseline="@+id/buttonSaveADF"
@@ -200,6 +211,7 @@
 
         <Button
             android:id="@+id/buttonSaveADF"
+            android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"

@@ -21,7 +21,7 @@ import android.widget.TextView;
 
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, SetADFNameDialog.CallbackListener, StatusFragment.OnFragmentInteractionListener {
+public class MainActivity extends AppCompatActivity implements SetADFNameDialog.CallbackListener {
     // DEFAULT ADF FILE NAME TO INITIALLY LOAD
     String mInitialADF = "lab2 30mar";
 
@@ -86,23 +86,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
         mTango = new TheTango(this, false, mInitialADF, mRobot);
-
-
-        //Buttons Setup
-        findViewById(R.id.buttonForward).setOnClickListener(this);
-        findViewById(R.id.buttonLeft).setOnClickListener(this);
-        findViewById(R.id.buttonRight).setOnClickListener(this);
-        findViewById(R.id.buttonReverse).setOnClickListener(this);
-        findViewById(R.id.buttonStop).setOnClickListener(this);
-        findViewById(R.id.buttonCountDown).setOnClickListener(this);
-        findViewById(R.id.buttonStopEverything).setOnClickListener(this);
-        findViewById(R.id.buttonAddTarget).setOnClickListener(this);
-        findViewById(R.id.buttonClose).setOnClickListener(this);
-        findViewById(R.id.buttonSettings).setOnClickListener(this);
-        findViewById(R.id.buttonResetTargets).setOnClickListener(this);
-        findViewById(R.id.buttonLearnADF).setOnClickListener(this);
-        findViewById(R.id.buttonSaveADF).setOnClickListener(this);
-        //findViewById(R.id.buttonConnect).setOnClickListener(this);
 
 
         ttobj = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
@@ -181,7 +164,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mRemoteServer.sendMessage(s);
     }
 
-    @Override
+
     public void onClick(View view) {
 
         mRobot.sendManualCommand(Commands.BEEPLOW);
@@ -440,9 +423,5 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onNewIntent(Intent intent){
         super.onNewIntent(intent);
-    }
-
-    @Override
-    public void onFragmentInteraction(Uri uri){
     }
 }

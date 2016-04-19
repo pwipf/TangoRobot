@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.Color;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
@@ -22,7 +21,6 @@ import java.util.concurrent.Executors;
 public class SerialPort{
 
     private MainActivity mMainAct;
-    private AsyncTask mSerialDeviceSearchTask;
     private UsbManager mUsbManager;
     public UsbSerialPort mPort;
 
@@ -52,19 +50,6 @@ public class SerialPort{
         mMainAct.setSerialStatus(false,false);
     }
 
-    private void startMan(){
-        if(mPort!=null){
-            mSerialManager=new SerialInputOutputManager(mPort, mListener);
-            mExec.submit(mSerialManager);
-        }
-    }
-    private void stopMan(){
-        if(mSerialManager!=null){
-            mSerialManager.stop();
-            mSerialManager=null;
-        }
-    }
-
     public boolean isOpen(){
         return mPort!=null;
     }
@@ -80,16 +65,11 @@ public class SerialPort{
         return 0;
     }
 
-
     // This is the main function to get and connect to the serial device
     // find the USB Serial Port device
     private void getSerialDevice(){
         mMainAct.setSerialStatus(false,false);
-        mSerialDeviceSearchTask=new AsyncTask<Void,Integer,UsbSerialPort>(){
-            // this does not keep checking for a device.
-            // in theory should try to get notified if a device gets attached.
-            // As it is now, if a device is not attached when starting up, it will not
-            // ever be found anyway.
+        new AsyncTask<Void, Integer, UsbSerialPort>() {
             @Override
             protected UsbSerialPort doInBackground(Void... params){
                 UsbSerialPort result=null;
@@ -144,19 +124,32 @@ public class SerialPort{
         }
     }
 
+    //this is only for getting data from robot
     private final SerialInputOutputManager.Listener mListener =
             new SerialInputOutputManager.Listener() {
-
                 @Override
                 public void onRunError(Exception e) {
                     stopMan();
                 }
-
                 @Override
                 public void onNewData(final byte[] data) {
                     mMainAct.dump("  >"+new String(data));
                 }
             };
+
+    private void startMan() {
+        if (mPort != null) {
+            mSerialManager = new SerialInputOutputManager(mPort, mListener);
+            mExec.submit(mSerialManager);
+        }
+    }
+
+    private void stopMan() {
+        if (mSerialManager != null) {
+            mSerialManager.stop();
+            mSerialManager = null;
+        }
+    }
 
     public final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() { //Broadcast Receiver to automatically start and stop the Serial connection.
         @Override

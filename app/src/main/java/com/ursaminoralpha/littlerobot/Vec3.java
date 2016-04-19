@@ -40,7 +40,7 @@ public class Vec3{
 
     @Override
     public String toString(){
-        return String.format("%.3f %.3f %.3f", x, y, z);
+        return String.format("%+.02f %+.02f %+.02f", x, y, z);
     }
 
 

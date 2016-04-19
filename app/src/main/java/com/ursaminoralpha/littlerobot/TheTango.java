@@ -145,6 +145,8 @@ public class TheTango{
                 mLastUUID=adfUUID;
                 mCurrentADFName=tempName;
                 mLearningMode=learningMode;
+                mLocalized = false;
+                mStatus = TangoPoseData.POSE_UNKNOWN;
                 mMainAct.setLearningStatus(learningMode);
             }catch(TangoOutOfDateException e){
                 mMainAct.dump("Tango Service out of date!");
