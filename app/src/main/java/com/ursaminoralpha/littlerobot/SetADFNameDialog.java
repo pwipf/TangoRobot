@@ -59,14 +59,6 @@ public class SetADFNameDialog extends DialogFragment implements OnClickListener 
         dialogView.findViewById(R.id.Ok).setOnClickListener(this);
         dialogView.findViewById(R.id.cancel).setOnClickListener(this);
         setCancelable(false);
-        String name = this.getArguments().getString(TangoAreaDescriptionMetaData.KEY_NAME);
-        String id = this.getArguments().getString(TangoAreaDescriptionMetaData.KEY_UUID);
-        if (name != null) {
-            mNameEditText.setText(name);
-        }
-        if (id != null) {
-            mUUIDTextView.setText(id);
-        }
         return dialogView;
     }
 

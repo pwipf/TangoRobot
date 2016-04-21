@@ -46,12 +46,17 @@
                 android:layout_width="200dp"
                 android:layout_height="300dp">
 
-                <fragment
-                    android:id="@+id/status"
-                    android:name="com.ursaminoralpha.littlerobot.StatusFragment"
+                <FrameLayout
+                    android:id="@+id/statusHolder"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    tools:layout="@layout/fragment_status" />
+                    android:layout_height="wrap_content">
+                </FrameLayout>
+                <!--<fragment-->
+                    <!--android:id="@+id/status"-->
+                    <!--android:name="com.ursaminoralpha.littlerobot.StatusFragment"-->
+                    <!--android:layout_width="match_parent"-->
+                    <!--android:layout_height="wrap_content"-->
+                    <!--tools:layout="@layout/fragment_status" />-->
             </ScrollView>
 
             <com.ursaminoralpha.littlerobot.MapView
@@ -150,19 +155,20 @@
             android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
-            android:layout_above="@+id/buttonSettings"
-            android:layout_alignParentRight="true"
-            android:text="Stop All" />
-
-        <Button
-            android:id="@+id/buttonSettings"
-            android:onClick="onClick"
-            android:layout_width="200dp"
-            android:layout_height="wrap_content"
             android:layout_above="@+id/buttonAddTarget"
             android:layout_alignParentRight="true"
             android:layout_marginBottom="50dp"
-            android:text="Settings" />
+            android:text="Stop All" />
+
+        <!--<Button-->
+            <!--android:id="@+id/buttonSettings"-->
+            <!--android:onClick="onClick"-->
+            <!--android:layout_width="200dp"-->
+            <!--android:layout_height="wrap_content"-->
+            <!--android:layout_above="@+id/buttonAddTarget"-->
+            <!--android:layout_alignParentRight="true"-->
+            <!--android:layout_marginBottom="50dp"-->
+            <!--android:text="Settings" />-->
         <!--<Button-->
         <!--android:id="@+id/buttonConnect"-->
         <!--android:onClick="onClick"-->

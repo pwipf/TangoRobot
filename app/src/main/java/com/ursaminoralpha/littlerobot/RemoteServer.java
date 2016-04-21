@@ -8,43 +8,54 @@ package com.ursaminoralpha.littlerobot;
 // Runs separate thread which waits on connection and
 // then the same thread continues and waits for data.
 //
-// Calls mainactivity.setServerStatus to tell it's status.
+// Calls mainactivity.setStatusRemoteServer to tell it's status.
+
+import android.util.Log;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+enum SendDataType{
+    POSITIONROTATION(Type.FLOAT,4),
+    STRINGCOMMAND(Type.STRING,0),
+    TARGETADDED(Type.FLOAT,2),
+    TARGETSCLEARED(Type.NONE,0);
+    Type type;
+    int numVals;
+    SendDataType(Type t, int n){type=t;numVals=n;}
+    enum Type{STRING,FLOAT,NONE}
+}
 
 public class RemoteServer{
     ServerThread mServerThread;
-    MainActivity mainActivity;
+    MainActivity mMainAct;
     int mPort;
     String mIP;
     int mConections;
     boolean mRunning;
 
     public RemoteServer(MainActivity parent, Integer port){
-        mainActivity=parent;
+        mMainAct=parent;
         mPort=port;
         mServerThread=new ServerThread(port);
     }
 
     public void start(){
         mIP=getIPAddress();
-        mainActivity.setServerStatus(mIP,0,false,0);
-        mainActivity.dump("Starting server...\nIP " + getIPAddress() + "\nPort: "+mPort);
+        mMainAct.setStatusRemoteServer(mIP,0,false,0);
+        mMainAct.dump("Starting server...\nIP " + getIPAddress() + "\nPort: "+mPort);
         new Thread(mServerThread).start();
    }
 
@@ -54,12 +65,12 @@ public class RemoteServer{
     }
 
     public void stop(){
-        mainActivity.dump("Stopping server");
+        mMainAct.dump("Stopping server");
         mServerThread.stop();
     }
 
-    public void sendMessage(String mess){
-        mServerThread.sendMessage(mess);
+    public void sendData(SendDataType type, String sval, float[] fvals){
+        mServerThread.sendData(type,sval,fvals);
     }
 
     private class ServerThread implements Runnable{
@@ -73,11 +84,14 @@ public class RemoteServer{
         @Override
         public void run(){
             try{
-                mainActivity.setServerStatus(mIP,0,true,0);
+                Log.w("SERVERTHREAD","start of server server");
+                mMainAct.setStatusRemoteServer(mIP,0,true,0);
                 mServerSocket=new ServerSocket(mPort);
-                mainActivity.setServerStatus(mIP,mPort,true,0);
-                while(!mServerSocket.isClosed() && !Thread.currentThread().isInterrupted()){
+                mMainAct.setStatusRemoteServer(mIP,mPort,true,0);
+                Log.e("TAG","SetremoteStat");
+                while(mServerSocket!=null && !mServerSocket.isClosed() && !Thread.currentThread().isInterrupted()){
                     ConnectionThread c;
+                    Log.w("SERVERTHREAD","waiting for connection");
                     c=new ConnectionThread(mServerSocket.accept(), true);
                     mConnections.add(c);
                     new Thread(c).start();
@@ -85,12 +99,12 @@ public class RemoteServer{
                 }
             }catch(IOException e){/*probably socket closed*/}
             stop();
-            mainActivity.setServerStatus(mIP,0,false,0);
+            mMainAct.setStatusRemoteServer(mIP,0,false,0);
         }
         //sendMessage()
-        void sendMessage(String mess){
-            for(ConnectionThread c :mConnections){
-                c.sendMessage(mess);
+        void sendData(SendDataType type, String sval, float[] fvals){
+            for(ConnectionThread c:mConnections){
+                c.sendData(type,sval,fvals);
             }
         }
         //stop()
@@ -110,7 +124,7 @@ public class RemoteServer{
                 if(!d.mSocket.isClosed())
                     count++;
             }
-            mainActivity.setServerStatus(mIP,mPort,true,count);
+            mMainAct.setStatusRemoteServer(mIP,mPort,true,count);
         }
     }
 
@@ -119,44 +133,67 @@ public class RemoteServer{
         public Socket mSocket;
         private boolean mEcho;
         private BufferedReader mIn;
-        private PrintWriter mOut;
+        private DataOutputStream mOut;
 
         //Constructor
         ConnectionThread(Socket socket, boolean echo){
             mSocket=socket;
             mEcho=echo;
-            mainActivity.dump("New Connection with " + socket.getInetAddress());
+            mMainAct.dump("New Connection with " + socket.getInetAddress());
         }
 
         @Override
         public void run(){
             try{
+                Log.w("CONNETIONTHREAD","start of connection");
+
                 mIn=new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
-                mOut=new PrintWriter(new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream())), true);
-                mOut.println("Hello from Tango");
-                while(!mSocket.isClosed() && !Thread.currentThread().isInterrupted()){
+                mOut=new DataOutputStream(mSocket.getOutputStream());
+                sendData(SendDataType.STRINGCOMMAND,"Hello from Tango",null);
+                mMainAct.sendAllStatusItems();
+                while(mSocket!=null && !mSocket.isClosed() && !Thread.currentThread().isInterrupted()){
+                    Log.w("CONNETIONTHREAD","waiting for readline");
                     String rx=mIn.readLine();
                     if(rx == null){
                         mSocket.close();
                         break;
                     }
                     if(mEcho)
-                        mOut.println(rx);
+                        sendData(SendDataType.STRINGCOMMAND,rx,null);
                     sendActionMessage(rx);
                 }
-            }catch(IOException e){/*probably socket closed*/}
+            }catch(IOException e){/*probably socket closed*/
+                Log.e("CONNETIONTHREAD","IOEXC "+e.getMessage());}
             mServerThread.countConnections();
         }
 
-        public void sendMessage(String mess){
+        public synchronized void sendData(SendDataType type, String sval, float[] fvals){
             if(mSocket == null || !mSocket.isConnected() || mOut == null)
                 return;
-            mOut.println(mess);
+            try{
+                mOut.writeInt(type.ordinal());
+                switch(type.type){
+                    case STRING:
+                        byte[] b=sval.getBytes(StandardCharsets.UTF_8);
+                        mOut.writeInt(b.length);
+                        mOut.write(b);
+                        break;
+                    case FLOAT:
+                        for(int i=0; i<type.numVals; i++)
+                            mOut.writeFloat(fvals[i]);
+                        break;
+                    case NONE:
+                        break;
+                }
+            }catch(IOException e){
+                e.printStackTrace();
+            }
         }
 
         public void stop(){
             if(mSocket != null && !mSocket.isClosed()){
                 try{
+                    Log.w("STP","closing socket");
                     mSocket.close();
                 }catch(IOException e){}
             }
@@ -167,40 +204,48 @@ public class RemoteServer{
     private void sendActionMessage(String msg){
         switch(msg){
             case "Forward":
-                mainActivity.actionCommand(Robot.Commands.FORWARD);
+                mMainAct.actionCommand(Robot.Commands.FORWARD);
                 break;
             case "Reverse":
-                mainActivity.actionCommand(Robot.Commands.REVERSE);
+                mMainAct.actionCommand(Robot.Commands.REVERSE);
                 break;
             case "Stop":
-                mainActivity.actionCommand(Robot.Commands.STOP);
+                mMainAct.actionCommand(Robot.Commands.STOP);
                 break;
             case "Right":
-                mainActivity.actionCommand(Robot.Commands.SPINRIGHT);
+                mMainAct.actionCommand(Robot.Commands.SPINRIGHT);
                 break;
             case "Left":
-                mainActivity.actionCommand(Robot.Commands.SPINLEFT);
+                mMainAct.actionCommand(Robot.Commands.SPINLEFT);
                 break;
             case "Go To Target":
-                mainActivity.actionGo();
+                mMainAct.actionGo();
                 break;
             case "Add Target":
-                mainActivity.actionAddTarget();
+                mMainAct.actionAddTarget();
                 break;
             case "Clear Targets":
-                mainActivity.actionClearTargets();
+                mMainAct.actionClearTargets();
                 break;
             case "Stop Everything":
-                mainActivity.actionStopEverything();
+                mMainAct.actionStopEverything();
                 break;
             case "Learn ADF":
-                mainActivity.actionLearnADF();
-                mainActivity.dump("Learn Command Rxd");
+                mMainAct.actionLearnADF();
+                mMainAct.dump("Learn Command Rxd");
                 break;
             case "Save ADF":
-                mainActivity.actionSaveADF();
-                mainActivity.dump("Save Command Rxd");
+                mMainAct.actionSaveADF();
+                mMainAct.dump("Save Command Rxd");
                 break;
+        }
+        if(msg.startsWith("Save ADF")){
+            Log.w("SAVE","saveadfw name "+msg);
+            String[] substr=msg.split("%");
+            if(substr.length<2)
+                return;
+            mMainAct.dump("Save as command ("+substr[1]+")");
+            mMainAct.actionSaveADFName(substr[1]);
         }
     }
 
@@ -215,7 +260,7 @@ public class RemoteServer{
             }
         }catch(SocketException e){
         }
-        return "No IP Address Found";
+        return "No IP";
     }
 }
 

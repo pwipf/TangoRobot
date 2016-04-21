@@ -6,9 +6,8 @@
 
     <Button
         android:id="@+id/cancel"
-        style="?android:attr/buttonStyleSmall"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="150dp"
+        android:layout_height="60dp"
         android:layout_alignBaseline="@+id/Ok"
         android:layout_alignBottom="@+id/Ok"
         android:layout_toRightOf="@+id/Ok"
@@ -35,9 +34,8 @@
 
     <Button
         android:id="@+id/Ok"
-        style="?android:attr/buttonStyleSmall"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="150dp"
+        android:layout_height="60dp"
         android:layout_alignParentLeft="true"
         android:layout_below="@+id/uuidDisplay"
         android:text="Ok" />

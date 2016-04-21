@@ -20,7 +20,7 @@ import static com.ursaminoralpha.littlerobot.MathUtil.makeAngleInProperRange;
 import static com.ursaminoralpha.littlerobot.MathUtil.quaternionToAngle;
 //import com.google.atap.tango.ux;
 
-public class TheTango{
+public class TangoReal{
     private static MainActivity mMainAct;
 
     private static Tango mTango;
@@ -35,12 +35,13 @@ public class TheTango{
     private static AsyncTask mSaveTask;
     private static AsyncTask mPermissionsTask;
     private static String mLastUUID;
-    private static String mLastADFFilename;
     private Robot mRobot;
 
-    TheTango(MainActivity mainActivity, final boolean learningMode, final String adfName, Robot robot){
+    TangoReal(MainActivity mainActivity, final boolean learningMode, final String currentUUID, Robot robot){
         mMainAct=mainActivity;
         mRobot=robot;
+        mLastUUID=currentUUID;
+        mLearningMode=learningMode;
 
         if(!Tango.hasPermission(mMainAct, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
             mMainAct.startActivityForResult
@@ -79,7 +80,7 @@ public class TheTango{
                     mMainAct.dump("Could not get ADF Permission");
                 }
                 mPermissionsReady=true;
-                startTangoWithADF(learningMode,adfName);
+                startTangoWithAdfUUID(mLearningMode,mLastUUID);
                 return 0;
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -117,6 +118,7 @@ public class TheTango{
         mMainAct.dump("Starting with learning: "+mLearningMode);
         mMainAct.dump("UUID: "+mLastUUID);
     }
+
     //This starts the tango service
     private void startTangoWithAdfUUID(boolean learningMode, String adfUUID){
         if(!mIsTangoServiceConnected && mPermissionsReady){
@@ -194,9 +196,9 @@ public class TheTango{
         }
     }
 
-    void restartTango(boolean learningMode, String adfUUID){
+    void restartTango(boolean learningMode, String uuid){
         stop();
-        startTangoWithAdfUUID(learningMode,adfUUID);
+        startTangoWithAdfUUID(learningMode,uuid);
     }
 
 
@@ -249,7 +251,7 @@ public class TheTango{
                 }
 
                 if(changed){
-                    mMainAct.setTangoStatus(mLocalized,statusText(mStatus));
+                    mMainAct.setStatusTango(mLocalized,statusText(mStatus));
                 }
 
                 if(pose.baseFrame==TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
@@ -275,7 +277,7 @@ public class TheTango{
                     rot=makeAngleInProperRange(rot + Math.PI/2);
 
                     Vec3 translation=new Vec3(pose.translation);
-                    mMainAct.setPoseStatus(translation,(float)rot);
+                    mMainAct.setStatusPoseData(translation,(float)rot);
 
                     //update robot localization status if changed
                     if(mLocalized != mRobot.isLocalized()){
@@ -342,10 +344,18 @@ public class TheTango{
                         TangoAreaDescriptionMetaData meta=mTango.loadAreaDescriptionMetaData(uuid);
                         meta.set(TangoAreaDescriptionMetaData.KEY_NAME, fileName.getBytes());
                         mTango.saveAreaDescriptionMetadata(uuid, meta);
+                        mLastUUID=uuid;
+                        mMainAct.mCurrentUUID=mLastUUID;
+                        mMainAct.runOnUiThread(new Runnable(){
+                            @Override
+                            public void run(){
+                                mMainAct.writePrefs();
+                            }
+                        });
                         mMainAct.dump("Saved ADF as: " + fileName);
                     }
                     mMainAct.dump("Finished Saving, restarting...");
-                    restartTango(false, uuid);
+                    restartTango(false, mLastUUID);
                 }
             }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
@@ -356,8 +366,8 @@ public class TheTango{
         restartTango(true,loadADFuuid);
     }
 
-    public void stopLearnADFmode(String loadADFuuid){
-        restartTango(false,loadADFuuid);
+    public void stopLearnADFmode(){
+        restartTango(false,mLastUUID);
     }
 
     // getters

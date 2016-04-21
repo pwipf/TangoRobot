@@ -47,7 +47,7 @@ public class SerialPort{
             } catch(IOException e){}
         }
         mPort=null;
-        mMainAct.setSerialStatus(false,false);
+        mMainAct.setStatusSerial(false,false);
     }
 
     public boolean isOpen(){
@@ -68,7 +68,7 @@ public class SerialPort{
     // This is the main function to get and connect to the serial device
     // find the USB Serial Port device
     private void getSerialDevice(){
-        mMainAct.setSerialStatus(false,false);
+        mMainAct.setStatusSerial(false,false);
         new AsyncTask<Void, Integer, UsbSerialPort>() {
             @Override
             protected UsbSerialPort doInBackground(Void... params){
@@ -76,7 +76,7 @@ public class SerialPort{
                 mUsbManager=(UsbManager)mMainAct.getSystemService(Context.USB_SERVICE);
                 final List<UsbSerialDriver> drivers=UsbSerialProber.getDefaultProber().findAllDrivers(mUsbManager);
                 if(drivers.size()>0){
-                    mMainAct.setSerialStatus(true,false);
+                    mMainAct.setStatusSerial(true,false);
                     UsbSerialDriver driver=drivers.get(0);
                     try{
                         UsbDeviceConnection connection=mUsbManager.openDevice(driver.getDevice());
@@ -111,7 +111,7 @@ public class SerialPort{
             try{
                 result.open(connection);
                 result.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);///////////////////////////////////////// TODO: change back to 115200
-                mMainAct.setSerialStatus(true,true);
+                mMainAct.setStatusSerial(true,true);
                 mPort=result;
                 startMan();
             } catch(IOException e){

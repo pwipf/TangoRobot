@@ -121,12 +121,14 @@ public class Robot{
         }
         mMode=m;
         mMainAct.dump("MODECHANGE: " + m);
+        mMainAct.setStatusRobotMode(m+"");
     }
 
     public void clearTargets(){
         mCurrentTarget=0;
         mTargetList.clear();
         changeMode(Modes.STOP);
+        mMainAct.sendClearTargets();
     }
 
     public void stopEverything(){
@@ -138,6 +140,7 @@ public class Robot{
         mMainAct.dump("Added Target " + mTargetList.size() + "\n");
         mTargetList.add(new Target(mCurTranslation, mYRot));
         mMainAct.speak("target recorded");
+        mMainAct.sendAddedTarget((float)mCurTranslation.x,(float)mCurTranslation.y);
     }
 
 
@@ -164,10 +167,11 @@ public class Robot{
 
         if(c == mMovingState && !force)
             return;
-        if(c == Commands.FORWARD || c == Commands.STOP
+        if(c == Commands.FORWARD || c == Commands.STOP||c==Commands.REVERSE
                 || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
-                || c == Commands.HALFRIGHT || c == Commands.HALFLEFT)
+                || c == Commands.HALFRIGHT || c == Commands.HALFLEFT){
             mMovingState=c;
+        }
 
         byte buf[]=new byte[2];
         int n=0;
@@ -226,8 +230,10 @@ public class Robot{
         //output an info message
         if(n>0){
             mMainAct.dump(c + " sent");
+            mMainAct.setStatusRobotState(mMovingState+"");
         }else{
             mMainAct.dump("Tried to send " + c);
+            mMainAct.setStatusRobotState("~"+mMovingState);
         }
     }
 

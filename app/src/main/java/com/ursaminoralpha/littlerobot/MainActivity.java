@@ -6,24 +6,27 @@ import android.app.Activity;
 import android.app.FragmentManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.hardware.usb.UsbManager;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
+import static com.ursaminoralpha.littlerobot.StatusFragment.*;
 
-public class MainActivity extends AppCompatActivity implements SetADFNameDialog.CallbackListener {
-    // DEFAULT ADF FILE NAME TO INITIALLY LOAD
-    String mInitialADF = "lab2 30mar";
+public class MainActivity extends AppCompatActivity implements SetADFNameDialog.CallbackListener{
+    String mCurrentUUID="";
 
     // remote control server
     RemoteServer mRemoteServer;
@@ -42,55 +45,60 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     SerialPort mSerialPort;
     Robot mRobot;
     MapView mMapView;
-    TheTango mTango;
+    TangoFake mTango;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         // read settings
 
         // have screen not sleep while this activity running
         findViewById(android.R.id.content).setKeepScreenOn(true);
 
+//        WindowManager.LayoutParams params = getWindow().getAttributes();
+//        params.screenBrightness=0;
+//        getWindow().setAttributes(params);
         //UI Setup
 
         //mMapView=new MapView(this);
 
         setContentView(R.layout.activity_main);
 
-        mMapView = (MapView) findViewById(R.id.imageMap);
+        mMapView=(MapView)findViewById(R.id.imageMap);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar=(Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         setTitle("Little Robot");
 
-        //status TextViews
-        mDumpTextView = (TextView) findViewById(R.id.consoleText);
-        mDumpScroll = (ScrollView) findViewById(R.id.scroller);
-        mStatusFrag = (StatusFragment) getSupportFragmentManager().findFragmentById(R.id.status);
+        mStatusFrag=new StatusFragment();
 
-        mStatusFrag.ADFName(mInitialADF);
-        //  mStatusFrag.localized(mTango.mLocalized);
+        getFragmentManager().beginTransaction().add(R.id.statusHolder, mStatusFrag).commit();
+
+        //status TextViews
+        mDumpTextView=(TextView)findViewById(R.id.consoleText);
+        mDumpScroll=(ScrollView)findViewById(R.id.scroller);
+        //mStatusFrag = (StatusFragment) getFragmentManager().findFragmentById(R.id.status);
+
 
         //initialize Remote control server
-        mRemoteServer = new RemoteServer(this, 6242);
+        mRemoteServer=new RemoteServer(this, 6242);
 
-        mSerialPort = new SerialPort(this);
+        mSerialPort=new SerialPort(this);
 
         //Robot
-        mRobot = new Robot(this, mSerialPort);
+        mRobot=new Robot(this, mSerialPort);
 
         //have to load prefs after creating robot
         readPrefs();
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TheTango(this, false, mInitialADF, mRobot);
+        mTango=new TangoFake(this, false, mCurrentUUID, mRobot);
 
 
-        ttobj = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+        ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
             @Override
-            public void onInit(int status) {
+            public void onInit(int status){
                 dump("TTS initialized");
             }
         });
@@ -98,7 +106,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
 
     @Override
-    protected void onStart() {
+    protected void onStart(){
         Log.e("TAG", "onStart");
         super.onStart();
         mRemoteServer.start();
@@ -106,51 +114,51 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     }
 
     @Override
-    protected void onStop() {
+    protected void onStop(){
         Log.e("TAG", "onStop");
         super.onStop();
         mDumpTextView.append("Pausing...\n");
-        mRemoteServer.sendMessage("Server Pausing, will need to reconnect remote");
+        sendToRemote("Server Pausing, will need to reconnect remote");
         mRemoteServer.stop();
         mRobot.stop(); //better stop the robot!
         mTango.stop();
     }
 
     @Override
-    protected void onDestroy() {
+    protected void onDestroy(){
         Log.e("TAG", "onDestroy");
         super.onDestroy();
-        if (mSerialPort != null)
+        if(mSerialPort != null)
             unregisterReceiver(mSerialPort.broadcastReceiver);
     }
 
     @Override
-    protected void onResume() {
+    protected void onResume(){
         Log.e("TAG", "onResume");
         super.onResume();
         mSerialPort.open();
     }
 
     @Override
-    protected void onPause() {
+    protected void onPause(){
         Log.e("TAG", "onPause");
         super.onPause();
         mSerialPort.close();
     }
 
-    public void speak(final String s) {
-        runOnUiThread(new Runnable() {
+    public void speak(final String s){
+        runOnUiThread(new Runnable(){
             @Override
-            public void run() {
+            public void run(){
                 ttobj.speak(s, TextToSpeech.QUEUE_FLUSH, null);
             }
         });
     }
 
-    public void dump(final String s) {
-        runOnUiThread(new Runnable() {
+    public void dump(final String s){
+        runOnUiThread(new Runnable(){
             @Override
-            public void run() {
+            public void run(){
                 mDumpTextView.append(s + "\n");
                 mDumpScroll.fullScroll(View.FOCUS_DOWN);
 
@@ -160,15 +168,11 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         });
     }
 
-    public void sendToRemote(String s) {
-        mRemoteServer.sendMessage(s);
-    }
 
-
-    public void onClick(View view) {
+    public void onClick(View view){
 
         mRobot.sendManualCommand(Commands.BEEPLOW);
-        switch (view.getId()) {
+        switch(view.getId()){
             case R.id.buttonForward:
                 mRobot.sendManualCommand(Commands.FORWARD);
                 break;
@@ -193,11 +197,11 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
             case R.id.buttonResetTargets:
                 actionClearTargets();
                 break;
-            case R.id.buttonSettings:
-                Intent i = new Intent(this, SettingsActivity.class);
-                i.putExtra("settings", mRobot.mSettings);
-                startActivityForResult(i, 1);
-                break;
+//            case R.id.buttonSettings:
+//                Intent i = new Intent(this, SettingsActivity.class);
+//                i.putExtra("settings", mRobot.mSettings);
+//                startActivityForResult(i, 1);
+//                break;
             //Not using a button anymore to start remote server, starts automatically in onResume()
 //            case R.id.buttonConnect:
 //                if(mServerRunning){
@@ -221,113 +225,143 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         }
     }
 
-    public void actionLearnADF() {
-        runOnUiThread(new Runnable() {
+    public void actionLearnADF(){
+        runOnUiThread(new Runnable(){
             @Override
-            public void run() {
-                if (!mTango.isLearningMode())
+            public void run(){
+                if(!mTango.isLearningMode())
                     mTango.startLearnADFmode(null);
                 else
-                    mTango.stopLearnADFmode(mTango.getUUIDFromADFFileName(mInitialADF));
+                    mTango.stopLearnADFmode();
             }
         });
     }
 
-    public void setLearningStatus(final boolean learningMode) {
-        runOnUiThread(new Runnable() {
+    public void setLearningStatus(final boolean learningMode){
+        runOnUiThread(new Runnable(){
             @Override
-            public void run() {
-                if (learningMode) {
-                    ((Button) findViewById(R.id.buttonLearnADF)).setText("Cancel Learning");
+            public void run(){
+                if(learningMode){
+                    ((Button)findViewById(R.id.buttonLearnADF)).setText("Cancel Learning");
                     sendToRemote("Learning Mode On");
-                } else {
-                    ((Button) findViewById(R.id.buttonLearnADF)).setText("Learn ADF");
+                }else{
+                    ((Button)findViewById(R.id.buttonLearnADF)).setText("Learn ADF");
                     sendToRemote("Learning Mode Off");
                 }
-                mStatusFrag.learning(learningMode);
+                setStatusItem(StatusItem.LEARNING, learningMode,true);
             }
         });
     }
 
-    private void showSetADFNameDialog() {
-        Bundle bundle = new Bundle();
-        bundle.putString("name", "New ADF");
-        bundle.putString("id", ""); // UUID is generated after the ADF is saved.
-
-        FragmentManager manager = getFragmentManager();
-        SetADFNameDialog setADFNameDialog = new SetADFNameDialog();
-        setADFNameDialog.setArguments(bundle);
-        setADFNameDialog.show(manager, "ADFNameDialog");
+    private void showSetADFNameDialog(){
+        new SetADFNameDialog().show(getFragmentManager(), "ADFNameDialog");
     }
 
     @Override
-    public void onAdfNameOk(String name, String uuid) {
+    public void onAdfNameOk(String name, String uuid){
         mTango.saveADF(name);
     }
 
     @Override
-    public void onAdfNameCancelled() {
+    public void onAdfNameCancelled(){
     }
 
-    public void actionSaveADF() {
-        if (mTango.isLearningMode()) {
+    public void actionSaveADF(){
+        if(mTango.isLearningMode()){
             mRobot.changeMode(Robot.Modes.STOP);
             showSetADFNameDialog();
-        } else {
+        }else{
             dump("Not Learning");
         }
     }
 
-    // call from RemoteServer to update it's status
-    public void setServerStatus(final String ip, final int port,
-                                final boolean running, final int connections) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                //setTitle(""+connections);
-                mStatusFrag.remoteIP(ip);
-                mStatusFrag.remotePort(port);
-                mStatusFrag.remoteConnections(connections);
-                mStatusFrag.remoteRunning(running);
-            }
-        });
-    }
-
-    public void setSerialStatus(final boolean found, final boolean connected) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mStatusFrag.serialFound(found);
-                mStatusFrag.serialCon(connected);
-            }
-        });
+    public void actionSaveADFName(String name){
+        if(mTango.isLearningMode()){
+            mRobot.changeMode(Robot.Modes.STOP);
+            mTango.saveADF(name);
+        }else{
+            dump("Not Learning");
+        }
     }
 
 
-    public void setTangoStatus(final boolean localized, final String status) {
-        runOnUiThread(new Runnable() {
+    public void sendToRemote(String s){
+        mRemoteServer.sendData(SendDataType.STRINGCOMMAND,s,null);
+    }
+
+    public void sendToRemote(Vec3 pos, float rot){
+        float[] data={(float)pos.x, (float)pos.y, (float)pos.z, rot};
+        mRemoteServer.sendData(SendDataType.POSITIONROTATION,null,data);
+    }
+
+    public void sendAddedTarget(float x,float y){
+        mMapView.addTarget(x,y, Color.MAGENTA);
+        float[] f={x,y};
+        mRemoteServer.sendData(SendDataType.TARGETADDED,null,f);
+    }
+    public void sendClearTargets(){
+        mMapView.clearTargets();
+        mRemoteServer.sendData(SendDataType.TARGETSCLEARED,null,null);
+    }
+
+    public void sendAllStatusItems(){
+        Log.e("TAG","sendallstatusitems");
+        for(StatusItem item : StatusItem.values()){
+            sendToRemote(item.string+'%'+item.currentString);
+        }
+    }
+
+    private void setStatusItem(final StatusItem item, final String s, boolean remoteIt){
+        runOnUiThread(new Runnable(){
             @Override
-            public void run() {
-                mStatusFrag.localized(localized);
-                mStatusFrag.poseStatus(status);
+            public void run(){
+                StatusFragment.setStatusItem(item, s);
             }
         });
+
+        if(remoteIt)
+            sendToRemote(item.string + '%' + s);
     }
-    public void setPoseStatus(final Vec3 trans, final float rot){
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mStatusFrag.setPose(trans,rot);
-            }
-        });
+
+    private void setStatusItem(StatusItem item, Boolean b,boolean remoteIt){
+        setStatusItem(item, b? "YES" : "NO", remoteIt);
     }
+
+    public void setStatusRemoteServer(final String ip, final int port,
+                                      final boolean running, final int connections){
+        setStatusItem(StatusItem.REMOTEIP, ip,false);
+        setStatusItem(StatusItem.REMOTEPORT, port + "",false);
+        setStatusItem(StatusItem.REMOTERUN, running,false);
+        setStatusItem(StatusItem.REMOTECON, connections + "",false);
+    }
+
+    public void setStatusSerial(final boolean found, final boolean connected){
+        setStatusItem(StatusItem.SERIALFOUND, found,true);
+        setStatusItem(StatusItem.SERIALCON, connected,true);
+    }
+
+
+    public void setStatusTango(final boolean localized, final String status){
+        setStatusItem(StatusItem.LOCALIZED, localized,true);
+        setStatusItem(StatusItem.POSESTAT, status,true);
+    }
+
+    public void setStatusPoseData(final Vec3 position, final float rot){
+        sendToRemote(position, rot);
+        setStatusItem(StatusItem.POSITION, position.toString(),true);
+        setStatusItem(StatusItem.ROTATION, String.format("%.1f", rot*(180/Math.PI)),true);
+    }
+
     public void setStatusADFName(final String name){
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mStatusFrag.ADFName(name);
-            }
-        });
+        setStatusItem(StatusItem.ADFNAME, name,true);
+    }
+
+    public void setStatusRobotState(final String state){
+        setStatusItem(StatusItem.ROBOLASTCOM, state,true);
+    }
+
+    public void setStatusRobotMode(final String mode){
+        setStatusItem(StatusItem.ROBOMODE, mode,true);
     }
 
     //send command on UI Thread
@@ -385,43 +419,70 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     }
 
-    // read some settings from built in pref file
-    void readPrefs(){
-        SharedPreferences pref= this.getSharedPreferences("Prefs", Activity.MODE_PRIVATE);
-        mRobot.mSettings.threshDistBig=pref.getFloat("ThreshDistBig", .3f);
-        mRobot.mSettings.threshDistSmall=pref.getFloat("ThreshDistSmall", .2f);
-        mRobot.mSettings.threshAngleBig=pref.getFloat("ThreshAngleBig", .4f);
-        mRobot.mSettings.threshAngleSmall=pref.getFloat("ThreshAngleSmall",.3f);
-        mRobot.mSettings.updateInterval=pref.getFloat("UpdateRate",100.0f);
-        mInitialADF=pref.getString("ADFInitial","lab2 30mar");
-    }
 
     void writePrefs(){
-        SharedPreferences pref=this.getSharedPreferences("Prefs",Activity.MODE_PRIVATE);
-        SharedPreferences.Editor editor = pref.edit();
-        editor.putString("ADFInitial",mInitialADF);
-        editor.putFloat("ThreshDistBig",mRobot.mSettings.threshDistBig);
-        editor.putFloat("ThreshDistSmall",mRobot.mSettings.threshDistSmall);
-        editor.putFloat("ThreshAngleBig",mRobot.mSettings.threshAngleBig);
-        editor.putFloat("ThreshAngleSmall",mRobot.mSettings.threshAngleSmall);
-        editor.putFloat("UpdateRate",mRobot.mSettings.updateInterval);
+        SharedPreferences pref=this.getSharedPreferences("Prefs", Activity.MODE_PRIVATE);
+        SharedPreferences.Editor editor=pref.edit();
+        editor.putString("LastUUID", mCurrentUUID);
+        editor.putFloat("ThreshDistBig", mRobot.mSettings.threshDistBig);
+        editor.putFloat("ThreshDistSmall", mRobot.mSettings.threshDistSmall);
+        editor.putFloat("ThreshAngleBig", mRobot.mSettings.threshAngleBig);
+        editor.putFloat("ThreshAngleSmall", mRobot.mSettings.threshAngleSmall);
+        editor.putFloat("UpdateRate", mRobot.mSettings.updateInterval);
         editor.commit();
     }
 
 
+    @Override
+    public void onNewIntent(Intent intent){
+        super.onNewIntent(intent);
+    }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu){
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item){
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id=item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if(id == R.id.action_settings){
+            Intent i=new Intent(this, SettingsActivity.class);
+            i.putExtra("settings", mRobot.mSettings);
+            startActivityForResult(i, 1);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
     // this is called when the settings activity returns (startActivityForResult())
     @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    public void onActivityResult(int requestCode, int resultCode, Intent data){
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 1) {
+        if(requestCode == 1){
             if(resultCode == RESULT_OK){
                 mRobot.mSettings=data.getParcelableExtra("settings");
             }
         }
     }
 
-    @Override
-    public void onNewIntent(Intent intent){
-        super.onNewIntent(intent);
+    // read some settings from built in pref file
+    void readPrefs(){
+        SharedPreferences pref=this.getSharedPreferences("Prefs", Activity.MODE_PRIVATE);
+        mRobot.mSettings.threshDistBig=pref.getFloat("ThreshDistBig", .3f);
+        mRobot.mSettings.threshDistSmall=pref.getFloat("ThreshDistSmall", .2f);
+        mRobot.mSettings.threshAngleBig=pref.getFloat("ThreshAngleBig", .4f);
+        mRobot.mSettings.threshAngleSmall=pref.getFloat("ThreshAngleSmall", .3f);
+        mRobot.mSettings.updateInterval=pref.getFloat("UpdateRate", 100.0f);
+        mCurrentUUID=pref.getString("LastUUID", "lab2 30mar");
     }
 }
