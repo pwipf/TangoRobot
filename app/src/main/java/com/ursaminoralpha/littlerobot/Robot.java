@@ -2,6 +2,7 @@ package com.ursaminoralpha.littlerobot;
 
 
 import android.graphics.Color;
+import android.graphics.PointF;
 
 import java.util.ArrayList;
 
@@ -36,6 +37,44 @@ public class Robot{
     public Settings mSettings=new Settings();
     private SerialPort mPortDevice;
     private boolean mLocalized=false;
+
+
+    private ArrayList<PointF> path=new ArrayList<>();
+    private boolean mSavingPath=false;
+    private double mPathStartRotation;
+    private double mPathEndRotation;
+    public void startSavingPath(){
+        mPathStartRotation=mYRot;
+        mSavingPath=true;
+        path.clear();
+    }
+    public void stopSavingPath(){
+        mSavingPath=false;
+        mPathEndRotation=mYRot;
+    }
+
+    public void tracePathForward(){
+        mTargetList.clear();
+        for(PointF p:path){
+            Target t=new Target(new Vec3(p.x,p.y,0),0);
+            if(p==path.get(path.size()-1))
+                t.rot=mPathEndRotation;
+            mTargetList.add(t);
+        }
+        changeMode(Modes.GOTOTARGET);
+    }
+    public void tracePathReverse(){
+        mTargetList.clear();
+        for(int i=path.size()-1;i>=0;i++){
+            PointF p=path.get(i);
+            Target t=new Target(new Vec3(p.x,p.y,0),0);
+            if(i==0)
+                t.rot=mPathStartRotation;
+            mTargetList.add(t);
+        }
+        changeMode(Modes.GOTOTARGET);
+    }
+
 
 
     public enum Commands{

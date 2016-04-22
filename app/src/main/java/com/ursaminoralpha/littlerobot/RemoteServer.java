@@ -40,6 +40,7 @@ enum SendDataType{
 
 public class RemoteServer{
     ServerThread mServerThread;
+    Socket mMainSocket;
     MainActivity mMainAct;
     int mPort;
     String mIP;
@@ -221,6 +222,12 @@ public class RemoteServer{
                 break;
             case "Left":
                 mMainAct.actionCommand(Robot.Commands.SPINLEFT);
+                break;
+            case "Rightish":
+                mMainAct.actionCommand(Robot.Commands.HALFRIGHT);
+                break;
+            case "Leftish":
+                mMainAct.actionCommand(Robot.Commands.HALFLEFT);
                 break;
             case "Go To Target":
                 mMainAct.actionGo();

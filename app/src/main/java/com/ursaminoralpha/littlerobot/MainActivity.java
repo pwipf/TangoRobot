@@ -368,6 +368,10 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mMapView.setRobot((float) pos.x, (float) pos.y, (float) rot);
     }
 
+    public void addPathNode(float x,float y){
+
+    }
+
     //send command on UI Thread
     // this should be changed to a different thread I guess,
     // not sure if the serial port is thread safe.
