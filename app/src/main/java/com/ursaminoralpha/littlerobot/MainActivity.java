@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     SerialPort mSerialPort;
     Robot mRobot;
     MapView mMapView;
-    TangoFake mTango;
+    TangoReal mTango;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango=new TangoFake(this, false, mCurrentUUID, mRobot);
+        mTango = new TangoReal(this, false, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
@@ -483,6 +483,6 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mRobot.mSettings.threshAngleBig=pref.getFloat("ThreshAngleBig", .4f);
         mRobot.mSettings.threshAngleSmall=pref.getFloat("ThreshAngleSmall", .3f);
         mRobot.mSettings.updateInterval=pref.getFloat("UpdateRate", 100.0f);
-        mCurrentUUID=pref.getString("LastUUID", "lab2 30mar");
+        mCurrentUUID = pref.getString("LastUUID", "");
     }
 }

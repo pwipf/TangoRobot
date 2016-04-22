@@ -52,6 +52,7 @@ public class TangoReal{
 //        mPermissionsReady=true;
 //        mTangoReady=true;
 //        mTango=new Tango(mMainAct);
+//        mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
 //        mLastUUID=getUUIDFromADFFileName(adfName);
 
         mTango=new Tango(mMainAct, new Runnable(){
