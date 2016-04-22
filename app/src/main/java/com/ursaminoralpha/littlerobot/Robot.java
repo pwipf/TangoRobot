@@ -44,16 +44,21 @@ public class Robot{
     private double mPathStartRotation;
     private double mPathEndRotation;
     public void startSavingPath(){
+
         mPathStartRotation=mYRot;
         mSavingPath=true;
         path.clear();
+        addPath();
     }
     public void stopSavingPath(){
         mSavingPath=false;
         mPathEndRotation=mYRot;
+        addPath();
     }
 
     public void tracePathForward(){
+        if (path.size() == 0)
+            return;
         mTargetList.clear();
         for(PointF p:path){
             Target t=new Target(new Vec3(p.x,p.y,0),0);
@@ -61,17 +66,21 @@ public class Robot{
                 t.rot=mPathEndRotation;
             mTargetList.add(t);
         }
+        mCurrentTarget = 0;
         changeMode(Modes.GOTOTARGET);
     }
     public void tracePathReverse(){
+        if (path.size() == 0)
+            return;
         mTargetList.clear();
-        for(int i=path.size()-1;i>=0;i++){
+        for (int i = path.size() - 1; i >= 0; i--) {
             PointF p=path.get(i);
             Target t=new Target(new Vec3(p.x,p.y,0),0);
             if(i==0)
                 t.rot=mPathStartRotation;
             mTargetList.add(t);
         }
+        mCurrentTarget = 0;
         changeMode(Modes.GOTOTARGET);
     }
 
@@ -201,7 +210,24 @@ public class Robot{
         sendCommandX(c, true);
     }
 
+    private void addPath() {
+        path.add(new PointF((float) mCurTranslation.x, (float) mCurTranslation.y));
+        mMainAct.sendAddedTarget((float) mCurTranslation.x, (float) mCurTranslation.y);
+    }
     private void sendCommandX(Commands c, boolean force){
+
+        if (mSavingPath && mMovingState == Commands.FORWARD) {
+            switch (c) {
+                case STOP:
+                case SPINLEFT:
+                case SPINRIGHT:
+                case HALFLEFT:
+                case HALFRIGHT:
+                    addPath();
+                    break;
+            }
+        }
+
 
         if(c == mMovingState && !force)
             return;

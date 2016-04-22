@@ -249,6 +249,18 @@ public class RemoteServer{
                 mMainAct.actionSaveADF();
                 mMainAct.dump("Save Command Rxd");
                 break;
+            case "Start Path":
+                mMainAct.mRobot.startSavingPath();
+                break;
+            case "End Path":
+                mMainAct.mRobot.stopSavingPath();
+                break;
+            case "Trace Path Forward":
+                mMainAct.mRobot.tracePathForward();
+                break;
+            case "Trace Path Reverse":
+                mMainAct.mRobot.tracePathReverse();
+                break;
         }
         if(msg.startsWith("Save ADF")){
             Log.w("SAVE","saveadfw name "+msg);
