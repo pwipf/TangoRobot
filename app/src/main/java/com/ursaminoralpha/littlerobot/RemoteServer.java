@@ -121,7 +121,7 @@ public class RemoteServer{
         public void countConnections(){
             int count=0;
             for(ConnectionThread d:mConnections){
-                if(!d.mSocket.isClosed())
+                if ((d.mSocket != null && !d.mSocket.isClosed()))
                     count++;
             }
             mMainAct.setStatusRemoteServer(mIP,mPort,true,count);
@@ -155,7 +155,8 @@ public class RemoteServer{
                     Log.w("CONNETIONTHREAD","waiting for readline");
                     String rx=mIn.readLine();
                     if(rx == null){
-                        mSocket.close();
+                        if (mSocket != null)
+                            mSocket.close();
                         break;
                     }
                     if(mEcho)
@@ -163,7 +164,9 @@ public class RemoteServer{
                     sendActionMessage(rx);
                 }
             }catch(IOException e){/*probably socket closed*/
-                Log.e("CONNETIONTHREAD","IOEXC "+e.getMessage());}
+                Log.e("CONNETIONTHREAD", "IOEXC " + e.getMessage());
+                mSocket = null;
+            }
             mServerThread.countConnections();
         }
 
@@ -187,6 +190,7 @@ public class RemoteServer{
                 }
             }catch(IOException e){
                 e.printStackTrace();
+                mSocket = null;
             }
         }
 

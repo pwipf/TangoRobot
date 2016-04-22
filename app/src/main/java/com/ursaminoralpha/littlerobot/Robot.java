@@ -24,7 +24,6 @@ public class Robot{
         }
     }
 
-    ;
 
     private ArrayList<Target> mTargetList=new ArrayList<>();
     private static int mCurrentTarget=0;
@@ -240,19 +239,11 @@ public class Robot{
     //This is the interesting stuff, called each time the pose data is updated
     //this is called from pose listener thread, NOT UI
     private void doYourStuff(){
-        if(mTargetList.size()>0){
-            mToTarget=mTargetList.get(mCurrentTarget).pos.subtract(mCurTranslation);
-        }else
-            mToTarget=new Target(new Vec3(0, 0, 0), 0).pos.subtract(mCurTranslation);
-
-        final double toAngle=Math.atan2(mToTarget.y, mToTarget.x);
-        final double toDist=Math.sqrt(mToTarget.x*mToTarget.x + mToTarget.y*mToTarget.y);
-        final double turnAngle=makeAngleInProperRange(toAngle - mYRot);
 
         //READY TO GO!!!
         switch(mMode){
             case GOTOTARGET:
-                goToTarget(toDist);
+                goToTarget();
                 break;
 
             case STOP:
@@ -266,7 +257,7 @@ public class Robot{
     }
 
     // logic to drive toward target
-    private void goToTarget(double toDist){
+    private void goToTarget() {
         try{
             //check for errors, just in case, shouldn't be "going to target" in this case
             if(mTargetList.size() == 0 || mCurrentTarget>=mTargetList.size()){
@@ -274,13 +265,20 @@ public class Robot{
                 return;
             }
 
+            if (mTargetList.size() > 0) {
+                mToTarget = mTargetList.get(mCurrentTarget).pos.subtract(mCurTranslation);
+            } else
+                mToTarget = new Target(new Vec3(0, 0, 0), 0).pos.subtract(mCurTranslation);
+
+            double dist = Math.sqrt(mToTarget.x * mToTarget.x + mToTarget.y * mToTarget.y);
+
             //On a target, or was, need to go to next target, or turn to proper rotation
             //if last target.  First check if the distance is too large and we are NOT on target
             if(mOnTarget){
-                if(toDist<mSettings.threshDistBig){ //on target don't move
+                if (dist < mSettings.threshDistBig) { //on target don't move
                     if(mCurrentTarget == mTargetList.size() - 1){ // on last target
                         if(mUseTargetRotation && !mOnTargetRot)
-                            changeDirection(mTargetList.get(mCurrentTarget).rot, Commands.STOP);
+                            changeDirection(mTargetList.get(mCurrentTarget).rot, 0, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
                             changeMode(Modes.STOP);
                             sendCommand(Commands.BEEPLOWHI);
@@ -305,7 +303,7 @@ public class Robot{
             }
 
             //at this point maybe we got close enough to the target, set the flag and return
-            if(toDist<mSettings.threshDistSmall){ //on target stop (next update will start going to next target)
+            if (dist < mSettings.threshDistSmall) { //on target stop (next update will start going to next target)
                 //sendCommand(Commands.STOP);
                 mOnTarget=true;
                 mOnTargetRot=false;
@@ -315,7 +313,7 @@ public class Robot{
             //at this point still need to get closer.
             //strangely, changeDirection() works on this.
             double toAngle=Math.atan2(mToTarget.y, mToTarget.x);
-            changeDirection(toAngle, Commands.FORWARD);
+            changeDirection(toAngle, dist, Commands.FORWARD);
 
         }catch(Exception e){
             mMainAct.dump("goToTarget() exception: " + e.getMessage());
@@ -326,35 +324,98 @@ public class Robot{
     //changeDirection()
     // this one accepts a target direction and a command to run
     // after the target direction is aquired, forward or stop I guess
-    private void changeDirection(double targetDir, Commands afterCommand){
+    private static final double TURNINGAPERDTHRESH = Math.PI / 4;
+    private static final double FORWAPERDTHRESH = Math.PI;
+
+    private void changeDirection(double targetDir, double dist, Commands afterCommand) {
+
         double turnAngle=makeAngleInProperRange(targetDir - mYRot);
         double mag=Math.abs(turnAngle);
         boolean needToTurnLeft=turnAngle>0; //need to turn left
+
+        double anglePerDist = mag / dist;
+        mMainAct.setStatusPoseData(new Vec3(mag, dist, anglePerDist), (float) turnAngle);
+
         switch(mMovingState){
             case STOP:
+                if (mag > mSettings.threshAngleBig) {//need to change
+                    mOnTargetRot = false;
+                    sendCommand(needToTurnLeft ? Commands.SPINLEFT : Commands.SPINRIGHT);
+
+                } else {
+                    mOnTargetRot = true;
+                    sendCommand(afterCommand);
+                }
+                break;
+
             case FORWARD:
-                if(mag>mSettings.threshAngleBig){//need to change
+                if (mag > mSettings.threshAngleSmall) {//need to change
                     mOnTargetRot=false;
-                    sendCommand(needToTurnLeft? Commands.SPINLEFT : Commands.SPINRIGHT);
+
+                    if (mag < mSettings.threshAngleBig)
+                        sendCommand(needToTurnLeft ? Commands.HALFLEFT : Commands.HALFRIGHT);
+                    else
+                        sendCommand(needToTurnLeft ? Commands.SPINLEFT : Commands.SPINRIGHT);
                 }else{
                     mOnTargetRot=true;
                     sendCommand(afterCommand);
                 }
                 break;
+
+
             case SPINRIGHT:
                 if(mag<mSettings.threshAngleSmall || needToTurnLeft){
+                    if (!needToTurnLeft)
+                        mOnTargetRot = true;
                     sendCommand(afterCommand);
-                    if(!needToTurnLeft)
-                        mOnTargetRot=true;
+                    break;
+                }
+                if (mag < mSettings.threshAngleBig) {
+                    sendCommand(Commands.HALFRIGHT);
+                    break;
                 }
                 break;
+
+            // Halfturn same as spin except use threshhold divided by 2
+            case HALFRIGHT:
+                if (mag < (mSettings.threshAngleSmall / 2) || needToTurnLeft) {
+                    if (!needToTurnLeft)
+                        mOnTargetRot = true;
+                    sendCommand(afterCommand);
+                    break;
+                }
+
+                if (mag > mSettings.threshAngleBig) {
+                    sendCommand(Commands.SPINRIGHT);
+                }
+                break;
+
+
             case SPINLEFT:
                 if(mag<mSettings.threshAngleSmall || !needToTurnLeft){
+                    if (needToTurnLeft)
+                        mOnTargetRot = true;
                     sendCommand(afterCommand);
-                    if(needToTurnLeft)
-                        mOnTargetRot=true;
+                    break;
+                }
+                if (mag < mSettings.threshAngleBig) {
+                    sendCommand(Commands.HALFLEFT);
+                    break;
                 }
                 break;
+
+            case HALFLEFT:
+                if (mag < (mSettings.threshAngleSmall / 2) || !needToTurnLeft) {
+                    if (needToTurnLeft)
+                        mOnTargetRot = true;
+                    sendCommand(afterCommand);
+                }
+
+                if (mag > mSettings.threshAngleBig) {
+                    sendCommand(Commands.SPINLEFT);
+                }
+                break;
+
         }
     }
 
@@ -421,7 +482,7 @@ public class Robot{
     public void setPose(Vec3 translation, double rotation){
         mCurTranslation=translation;
         mYRot=rotation;
-        mMainAct.mMapView.setRobot((float)translation.x, (float)translation.y, (float)rotation);
+        mMainAct.setRobotMap(translation, rotation);
         doYourStuff();
     }
 }

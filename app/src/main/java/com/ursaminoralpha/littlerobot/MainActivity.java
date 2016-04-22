@@ -55,9 +55,9 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         // have screen not sleep while this activity running
         findViewById(android.R.id.content).setKeepScreenOn(true);
 
-//        WindowManager.LayoutParams params = getWindow().getAttributes();
-//        params.screenBrightness=0;
-//        getWindow().setAttributes(params);
+        WindowManager.LayoutParams params = getWindow().getAttributes();
+        params.screenBrightness = 0;
+        getWindow().setAttributes(params);
         //UI Setup
 
         //mMapView=new MapView(this);
@@ -347,7 +347,6 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     }
 
     public void setStatusPoseData(final Vec3 position, final float rot){
-        sendToRemote(position, rot);
         setStatusItem(StatusItem.POSITION, position.toString(),true);
         setStatusItem(StatusItem.ROTATION, String.format("%.1f", rot*(180/Math.PI)),true);
     }
@@ -362,6 +361,11 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     public void setStatusRobotMode(final String mode){
         setStatusItem(StatusItem.ROBOMODE, mode,true);
+    }
+
+    public void setRobotMap(Vec3 pos, double rot) {
+        sendToRemote(pos, (float) rot);
+        mMapView.setRobot((float) pos.x, (float) pos.y, (float) rot);
     }
 
     //send command on UI Thread
@@ -478,10 +482,10 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     // read some settings from built in pref file
     void readPrefs(){
         SharedPreferences pref=this.getSharedPreferences("Prefs", Activity.MODE_PRIVATE);
-        mRobot.mSettings.threshDistBig=pref.getFloat("ThreshDistBig", .3f);
-        mRobot.mSettings.threshDistSmall=pref.getFloat("ThreshDistSmall", .2f);
-        mRobot.mSettings.threshAngleBig=pref.getFloat("ThreshAngleBig", .4f);
-        mRobot.mSettings.threshAngleSmall=pref.getFloat("ThreshAngleSmall", .3f);
+        mRobot.mSettings.threshDistBig = pref.getFloat("ThreshDistBig", 30.0f / 100);
+        mRobot.mSettings.threshDistSmall = pref.getFloat("ThreshDistSmall", 10.0f / 100);
+        mRobot.mSettings.threshAngleBig = pref.getFloat("ThreshAngleBig", 20.0f / (float) (180 / Math.PI));
+        mRobot.mSettings.threshAngleSmall = pref.getFloat("ThreshAngleSmall", 10.0f / (float) (180 / Math.PI));
         mRobot.mSettings.updateInterval=pref.getFloat("UpdateRate", 100.0f);
         mCurrentUUID = pref.getString("LastUUID", "");
     }

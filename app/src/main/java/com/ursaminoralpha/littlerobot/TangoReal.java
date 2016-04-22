@@ -243,6 +243,7 @@ public class TangoReal{
                     mLocalized=newLoc;
                     changed=true;
                     mMainAct.dump("Localized: " + mLocalized);
+                    mMainAct.speak(mLocalized ? "Localized" : "Localization Lost");
                 }
 
                 if(pose.statusCode!=mStatus){
@@ -278,7 +279,8 @@ public class TangoReal{
                     rot=makeAngleInProperRange(rot + Math.PI/2);
 
                     Vec3 translation=new Vec3(pose.translation);
-                    mMainAct.setStatusPoseData(translation,(float)rot);
+
+                    //mMainAct.setStatusPoseData(translation,(float)rot);
 
                     //update robot localization status if changed
                     if(mLocalized != mRobot.isLocalized()){
