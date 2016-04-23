@@ -40,24 +40,31 @@ enum SendDataType{
 }
 
 public class RemoteServer{
-    ServerThread mServerThread;
-    Socket mMainSocket;
-    MainActivity mMainAct;
-    int mPort;
-    String mIP;
-    int mConections;
-    boolean mRunning;
+    
+    public interface RemoteReceiver{
+        void onStatusUpdate(String ip, int port, boolean running, int connections);
+        void onNewConnection(String remoteIP);
+        void onReceivedMessage(String message);
+    }
 
-    public RemoteServer(MainActivity parent, Integer port){
-        mMainAct=parent;
+    private static final int MAXCONNECTIONS=3;
+    private ServerThread mServerThread;
+    private RemoteReceiver mReceiver;
+    private int mPort;
+    private String mIP;
+    private boolean mEcho;
+
+    public RemoteServer(RemoteReceiver remoteReceiver, Integer port, boolean echo){
+        mReceiver=remoteReceiver;
         mPort=port;
         mServerThread=new ServerThread(port);
+        mEcho=echo;
     }
 
     public void start(){
         mIP=getIPAddress();
-        mMainAct.setStatusRemoteServer(mIP,0,false,0);
-        mMainAct.dump("Starting server...\nIP " + getIPAddress() + "\nPort: "+mPort);
+        mReceiver.onStatusUpdate(mIP,0,false,0);
+        Log.i("REMOTESERVER","Starting server...\nIP " + getIPAddress() + "\nPort: "+mPort);
         new Thread(mServerThread).start();
    }
 
@@ -67,7 +74,7 @@ public class RemoteServer{
     }
 
     public void stop(){
-        mMainAct.dump("Stopping server");
+        Log.i("REMOTESERVER","Stopping");
         mServerThread.stop();
     }
 
@@ -75,10 +82,15 @@ public class RemoteServer{
         mServerThread.sendData(type,sval,fvals);
     }
 
+    public void setEcho(boolean echo){
+        mEcho=echo;
+    }
+
     private class ServerThread implements Runnable{
         int mPort;
         ServerSocket mServerSocket;
-        List<ConnectionThread> mConnections=new ArrayList<>();
+        ConnectionThread[] mConnectionArray=new ConnectionThread[MAXCONNECTIONS];
+        int mConIndex=0;
         //Constructor
         ServerThread(int port){
             mPort=port;
@@ -86,33 +98,36 @@ public class RemoteServer{
         @Override
         public void run(){
             try{
-                Log.w("SERVERTHREAD","start of server server");
-                mMainAct.setStatusRemoteServer(mIP,0,true,0);
+                Log.i("SERVERTHREAD","start of server thread");
+                mReceiver.onStatusUpdate(mIP,0,true,0);
                 mServerSocket=new ServerSocket(mPort);
-                mMainAct.setStatusRemoteServer(mIP,mPort,true,0);
-                Log.e("TAG","SetremoteStat");
+                mReceiver.onStatusUpdate(mIP,mPort,true,0);
                 while(mServerSocket!=null && !mServerSocket.isClosed() && !Thread.currentThread().isInterrupted()){
                     ConnectionThread c;
-                    Log.w("SERVERTHREAD","waiting for connection");
-                    c=new ConnectionThread(mServerSocket.accept(), true);
-                    mConnections.add(c);
+                    Log.i("SERVERTHREAD","waiting for connection");
+                    c=new ConnectionThread(mServerSocket.accept());
+                    mConnectionArray[mConIndex]=c;
+                    mConIndex++;if(mConIndex==MAXCONNECTIONS)mConIndex=0;
                     new Thread(c).start();
                     countConnections();
                 }
             }catch(IOException e){/*probably socket closed*/}
             stop();
-            mMainAct.setStatusRemoteServer(mIP,0,false,0);
+            mReceiver.onStatusUpdate(mIP,0,false,0);
+            Log.i("SERVERTHREAD","end of server thread");
         }
         //sendMessage()
         void sendData(SendDataType type, String sval, float[] fvals){
-            for(ConnectionThread c:mConnections){
-                c.sendData(type,sval,fvals);
+            for(ConnectionThread c:mConnectionArray){
+                if(c!=null)
+                    c.sendData(type,sval,fvals);
             }
         }
         //stop()
         public void stop(){
-            for(ConnectionThread c :mConnections){
-                c.stop();
+            for(ConnectionThread c :mConnectionArray){
+                if(c!=null)
+                    c.stop();
             }
             if(mServerSocket != null){
                 try{
@@ -120,41 +135,37 @@ public class RemoteServer{
                 }catch(IOException e){}
             }
         }
-        public void countConnections(){
+        public void countConnections(){ // TODO concurrent modification exception possible, probably on close
             int count=0;
-            for(ConnectionThread d:mConnections){
-                if ((d.mSocket != null && !d.mSocket.isClosed()))
+            for(ConnectionThread d:mConnectionArray){
+                if(d!=null)
+                    if ((d.mSocket != null && !d.mSocket.isClosed()))
                     count++;
             }
-            mMainAct.setStatusRemoteServer(mIP,mPort,true,count);
+            mReceiver.onStatusUpdate(mIP,mPort,true,count);
         }
     }
 
 
     private class ConnectionThread implements Runnable{
         public Socket mSocket;
-        private boolean mEcho;
         private BufferedReader mIn;
         private DataOutputStream mOut;
 
         //Constructor
-        ConnectionThread(Socket socket, boolean echo){
+        ConnectionThread(Socket socket){
             mSocket=socket;
-            mEcho=echo;
-            mMainAct.dump("New Connection with " + socket.getInetAddress());
         }
 
         @Override
         public void run(){
             try{
-                Log.w("CONNETIONTHREAD","start of connection");
-
+                Log.i("CONNETIONTHREAD","start thread");
                 mIn=new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
                 mOut=new DataOutputStream(mSocket.getOutputStream());
-                sendData(SendDataType.STRINGCOMMAND,"Hello from Tango",null);
-                mMainAct.sendAllStatusItems();
+                mReceiver.onNewConnection(mSocket.getInetAddress().toString());
                 while(mSocket!=null && !mSocket.isClosed() && !Thread.currentThread().isInterrupted()){
-                    Log.w("CONNETIONTHREAD","waiting for readline");
+                    Log.i("CONNETIONTHREAD","waiting for readline");
                     String rx=mIn.readLine();
                     if(rx == null){
                         if (mSocket != null)
@@ -163,13 +174,14 @@ public class RemoteServer{
                     }
                     if(mEcho)
                         sendData(SendDataType.STRINGCOMMAND,rx,null);
-                    sendActionMessage(rx);
+                    mReceiver.onReceivedMessage(rx);
                 }
             }catch(IOException e){/*probably socket closed*/
-                Log.e("CONNETIONTHREAD", "IOEXC " + e.getMessage());
+                Log.w("CONNETIONTHREAD", "IOEXC " + e.getMessage());
                 mSocket = null;
             }
             mServerThread.countConnections();
+            Log.i("CONNETIONTHREAD","end thread");
         }
 
         public synchronized void sendData(SendDataType type, String sval, float[] fvals){
@@ -199,77 +211,10 @@ public class RemoteServer{
         public void stop(){
             if(mSocket != null && !mSocket.isClosed()){
                 try{
-                    Log.w("STP","closing socket");
+                    Log.i("STP","closing socket");
                     mSocket.close();
                 }catch(IOException e){}
             }
-        }
-    }
-
-
-    private void sendActionMessage(String msg){
-        switch(msg){
-            case "Forward":
-                mMainAct.actionCommand(Robot.Commands.FORWARD);
-                break;
-            case "Reverse":
-                mMainAct.actionCommand(Robot.Commands.REVERSE);
-                break;
-            case "Stop":
-                mMainAct.actionCommand(Robot.Commands.STOP);
-                break;
-            case "Right":
-                mMainAct.actionCommand(Robot.Commands.SPINRIGHT);
-                break;
-            case "Left":
-                mMainAct.actionCommand(Robot.Commands.SPINLEFT);
-                break;
-            case "Rightish":
-                mMainAct.actionCommand(Robot.Commands.HALFRIGHT);
-                break;
-            case "Leftish":
-                mMainAct.actionCommand(Robot.Commands.HALFLEFT);
-                break;
-            case "Go To Target":
-                mMainAct.actionGo();
-                break;
-            case "Add Target":
-                mMainAct.actionAddTarget();
-                break;
-            case "Clear Targets":
-                mMainAct.actionClearTargets();
-                break;
-            case "Stop Everything":
-                mMainAct.actionStopEverything();
-                break;
-            case "Learn ADF":
-                mMainAct.actionLearnADF();
-                mMainAct.dump("Learn Command Rxd");
-                break;
-            case "Save ADF":
-                mMainAct.actionSaveADF();
-                mMainAct.dump("Save Command Rxd");
-                break;
-            case "Start Path":
-                mMainAct.mRobot.startSavingPath();
-                break;
-            case "End Path":
-                mMainAct.mRobot.stopSavingPath();
-                break;
-            case "Trace Path Forward":
-                mMainAct.mRobot.tracePathForward();
-                break;
-            case "Trace Path Reverse":
-                mMainAct.mRobot.tracePathReverse();
-                break;
-        }
-        if(msg.startsWith("Save ADF")){
-            Log.w("SAVE","saveadfw name "+msg);
-            String[] substr=msg.split("%");
-            if(substr.length<2)
-                return;
-            mMainAct.dump("Save as command ("+substr[1]+")");
-            mMainAct.actionSaveADFName(substr[1]);
         }
     }
 

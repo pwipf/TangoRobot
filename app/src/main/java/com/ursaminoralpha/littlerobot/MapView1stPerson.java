@@ -1,31 +1,30 @@
 package com.ursaminoralpha.littlerobot;
 
-        import android.content.Context;
-        import android.graphics.Canvas;
-        import android.graphics.Color;
-        import android.graphics.Matrix;
-        import android.graphics.Paint;
-        import android.graphics.PointF;
-        import android.graphics.RectF;
-        import android.util.AttributeSet;
-        import android.view.GestureDetector;
-        import android.view.MotionEvent;
-        import android.view.ScaleGestureDetector;
-        import android.view.View;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.PointF;
+import android.graphics.RectF;
+import android.util.AttributeSet;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.view.View;
 
-        import java.util.ArrayList;
-        import java.util.Timer;
-        import java.util.TimerTask;
+import java.util.ArrayList;
+import java.util.TimerTask;
 
 /**
  * Created by Magpie on 4/17/2016.
  */
-public class MapView extends View implements RotationGesture.OnRotationListener,ScaleGestureDetector.OnScaleGestureListener, GestureDetector.OnGestureListener{
+public class MapView1stPerson extends View implements ScaleGestureDetector.OnScaleGestureListener, GestureDetector.OnGestureListener{
     ScaleGestureDetector mScaleDet;
     GestureDetector mGestDet;
-    RotationGesture mRotGest;
-    float mLastRot;
+    float mLastRot=0;
 
+    float mLastX,mLastY;
 
     static final float FTtM=0.3048f;
     float scaleWtoS=1;
@@ -35,7 +34,8 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
     float mAspect;
     float mRot;
     Matrix mWorldToScreen=new Matrix();
-    float mScale=120;
+    Matrix mWorldToScreenCenter=new Matrix();
+    float mScale=1;
 
     Matrix mScreenToWorld=new Matrix();
     Matrix mScreenScaleToWorld=new Matrix();
@@ -52,16 +52,9 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
     float mRoboPts[]={1, 1, -1, 1, -1, 1, 0, -1, 0, -1, 1, 1, -1.1f, .4f, 1.1f, .4f,
             -1.1f, .9f, -1.1f, -.1f, 1.1f, .9f, 1.1f, -.1f};
 
-    ArrayList<PointColor> mTargets=new ArrayList<>();
-    ArrayList<Integer> mTargetCol=new ArrayList<>();
-    //ArrayList<PointF> mDepthPts=new ArrayList<>();
-
     static final int NDEPTHPTS=9 ;
     PointF[] mDepthPts=new PointF[NDEPTHPTS];
     int mDepthIndex=0;
-
-    private static final int NUM_PAINTS=10;
-    Paint paint[]=new Paint[NUM_PAINTS];
 
     class PointColor{
         PointF pt;
@@ -73,7 +66,31 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
         }
     }
 
+    ArrayList<PointColor> mTargets=new ArrayList<>();
+    ArrayList<Integer> mTargetCol=new ArrayList<>();
 
+    private static final int NUM_PAINTS=10;
+    Paint paint[]=new Paint[NUM_PAINTS];
+
+    @Override
+    protected void onDraw(Canvas canvas){
+        if(isInEditMode())
+            return;
+
+        drawGrid(canvas);
+        drawAxex(canvas);
+        drawRobot(canvas);
+
+        for(int i=0;i<mTargets.size();i++){
+            PointF dp=toDevice(mTargets.get(i).pt);
+            paint[0].setColor(mTargets.get(i).col);
+            canvas.drawCircle(dp.x, dp.y, 5, paint[0]);
+            canvas.drawText(""+(i+1),dp.x+5,dp.y+5,zAxisPaint);
+        }
+
+        canvas.drawRect(1, 1, mSize.x, mSize.y - 1, mBlackPaint);
+        drawDepthPts(canvas);
+    }
 
     public void addTarget(float x, float y, Integer col){
         mTargets.add(new PointColor(new PointF(x, y), col));
@@ -84,7 +101,9 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
         PointF pt=new PointF(); //in world coords, want to show z dist in front of robot, with u,v = .5 (middle of camera), will need some calibration
         pt.y=z*10;
         pt.x=(u-.5f)*10; //0 for uv .5
-        mDepthPts[mDepthIndex]=new PointF(pt.x,pt.y);
+        float[] fpt={pt.x,pt.y};
+        //mRobotModel.mapPoints(fpt);
+        mDepthPts[mDepthIndex]=new PointF(fpt[0],fpt[1]);
         mDepthIndex++;if(mDepthIndex==NDEPTHPTS)mDepthIndex=0;
 
         //schedule timer to remove point in 1 second
@@ -105,11 +124,13 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
     private void drawDepthPts(Canvas canvas){
 
         //PointF[] pts=mDepthPts.toArray(new PointF[mDepthPts.size()]);
+//        PointF dp=toDevice(mTargets.get(i).pt);
+//        paint[0].setColor(mTargets.get(i).col);
 
         for(PointF pt:mDepthPts){
             float[] fpt={pt.x,pt.y};
             mRobotModel.mapPoints(fpt);
-            mWorldToScreen.mapPoints(fpt);
+            mWorldToScreenCenter.mapPoints(fpt);
             paint[4].setColor(Color.rgb(0,150,100));
             canvas.drawCircle(fpt[0],fpt[1], 70/NDEPTHPTS, paint[4]);
         }
@@ -121,39 +142,30 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
     }
 
     public void setRobot(float x, float y, float rot){
-        mRobotLoc.x=x;
-        mRobotLoc.y=y;
-        mRobotRot=rot;
+        //mRobotLoc.x=x;
+        //mRobotLoc.y=y;
+        //mRobotRot=rot;
 
         rot*=180/Math.PI;
         rot=rot - 90;
 
+
+
         mRobotModel=new Matrix();
-        mRobotModel.setScale(.1f, .1f);
-        mRobotModel.postRotate(rot);
-        mRobotModel.postTranslate(x, y);
+        mRobotModel.setScale(.1f*mScale, .1f*mScale);
 
+
+        mCenter.x=x;
+        mCenter.y=y;
+        mRot=-rot;
+        setTransform();
         postInvalidate();
+
+
+        //mRobotModel.postRotate(-rot+180);
+        //mRobotModel.postTranslate(x, y);
     }
 
-    @Override
-    protected void onDraw(Canvas canvas){
-        if(isInEditMode())
-            return;
-        drawGrid(canvas);
-        drawAxex(canvas);
-        drawRobot(canvas);
-        canvas.drawLine(1, 1, 1, mSize.y - 1, mBlackPaint);
-
-        for(int i=0;i<mTargets.size();i++){
-            PointF dp=toDevice(mTargets.get(i).pt);
-            paint[0].setColor(mTargets.get(i).col);
-            canvas.drawCircle(dp.x, dp.y, 5, paint[0]);
-            canvas.drawText(""+(i+1),dp.x+5,dp.y+5,zAxisPaint);
-        }
-
-        drawDepthPts(canvas);
-    }
 
     void drawAxex(Canvas canvas){
         float[] xpts={0, 0, 1, 0, 1, 0, .8f, .2f, 1, 0, .8f, -.2f};
@@ -169,8 +181,8 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
         float[] pts=new float[mRoboPts.length];
         mRobotModel.mapPoints(pts, mRoboPts);
         mRobotModel.mapPoints(dot);
-        mWorldToScreen.mapPoints(pts);
-        mWorldToScreen.mapPoints(dot);
+        mWorldToScreenCenter.mapPoints(pts);
+        mWorldToScreenCenter.mapPoints(dot);
         canvas.drawLines(pts, 0, 16, mRobotPaint);
         canvas.drawLines(pts, 16, 8, mWheelPaint);
         canvas.drawCircle(dot[0], dot[1], 5, zAxisPaint);
@@ -224,7 +236,7 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
 //        init(context);
 //    }
 
-    public MapView(Context context, AttributeSet attrs){
+    public MapView1stPerson(Context context, AttributeSet attrs){
         super(context, attrs);
         if(isInEditMode())
             return;
@@ -237,12 +249,9 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
     private void init(Context context){
         mScaleDet=new ScaleGestureDetector(context, this);
         mGestDet=new GestureDetector(context, this);
-        mRotGest=new RotationGesture(this);
         //this.setOnTouchListener(this);
         for(int i=0; i<NUM_PAINTS; i++)
             paint[i]=new Paint();
-        for(int i=0;i<NDEPTHPTS;i++)
-            mDepthPts[i]=new PointF(0,0);
         paint[0].setStyle(Paint.Style.FILL);
         paint[0].setColor(Color.RED);
         paint[1].setColor(Color.rgb(0, 180, 0));
@@ -256,7 +265,7 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
         paint[4].setStyle(Paint.Style.STROKE);
         paint[4].setStrokeWidth(2);
         paint[4].setColor(Color.rgb(200,100,40));
-        xAxisPaint.setColor(Color.RED);
+         xAxisPaint.setColor(Color.RED);
         xAxisPaint.setStrokeWidth(2);
         zAxisPaint.setColor(Color.BLUE);
         zAxisPaint.setStrokeWidth(2);
@@ -266,6 +275,7 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
         mWheelPaint.setStrokeWidth(4);
         mBlackPaint.setColor(Color.BLACK);
         mBlackPaint.setStrokeWidth(2);
+        mBlackPaint.setStyle(Paint.Style.STROKE);
         setRobot(1, 1, -30);
     }
 
@@ -273,10 +283,10 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
     protected void onSizeChanged(int w, int h, int oldw, int oldh){
         super.onSizeChanged(w, h, oldw, oldh);
         mSize=new PointF(w, h);
-        //mMainAct.dump(w + " x " + h);
+        mMainAct.dump(w + " x " + h);
         mAspect=mSize.x/mSize.y;
-        //mMainAct.dump("aspect: " + mAspect);
-        setExtCenterRot(2.5f, 2.5f, 0, 0, 5);
+        mMainAct.dump("aspect: " + mAspect);
+        setExtCenterRot(2.5f, 2.5f, 0, 0, 90);
 
 
     }
@@ -286,18 +296,17 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
         RectF world=new RectF(-mExtents.x, -mExtents.y, mExtents.x, mExtents.y);
         mWorldToScreen.setRectToRect(world, screen, Matrix.ScaleToFit.CENTER);
         mWorldToScreen.preScale(1, -1);
+        mWorldToScreenCenter.set(mWorldToScreen);
         mWorldToScreen.invert(mScreenScaleToWorld);
+        mWorldToScreen.preRotate(mRot);
         mWorldToScreen.preTranslate(-mCenter.x, -mCenter.y);
         mWorldToScreen.invert(mScreenScaleTranslate);
-        mWorldToScreen.preRotate(mRot);
-        mWorldToScreen.invert(mScreenToWorld);
+       mWorldToScreen.invert(mScreenToWorld);
+        mWorldToScreen.preScale(mScale,mScale);
     }
 
     void transform(float dx, float dy, float scl,float rot){
         mScale*=scl;
-
-        mWorldToScreen.preRotate(rot);
-        mWorldToScreen.postTranslate(dx,-dy);
         mWorldToScreen.preScale(scl,scl);
         postInvalidate();
     }
@@ -316,7 +325,6 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
     @Override
     public boolean onTouchEvent(MotionEvent event){
         //mMainAct.dump("Fingers " + event.getPointerCount());
-        mRotGest.onTouchEvent(event);
         mGestDet.onTouchEvent(event);
         mScaleDet.onTouchEvent(event);
         return true;
@@ -324,16 +332,10 @@ public class MapView extends View implements RotationGesture.OnRotationListener,
 
     @Override
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY){
-        transform(-distanceX,distanceY,1,0);
+        //transform(-distanceX,distanceY,1,0);
         return true;
     }
 
-    @Override
-    public void OnRotation(RotationGesture rotationDetector){
-        float rot=rotationDetector.getAngle();
-        transform(0,0,1,rot-mLastRot);
-        mLastRot=rot;
-    }
 
     @Override
     public boolean onScale(ScaleGestureDetector detector){

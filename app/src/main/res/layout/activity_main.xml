@@ -38,62 +38,73 @@
         <LinearLayout
             android:id="@+id/layoutTop"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_marginBottom="10dp">
 
 
-            <ScrollView
+            <LinearLayout
                 android:layout_width="200dp"
-                android:layout_height="300dp">
+                android:layout_height="match_parent"
+                android:orientation="vertical">
 
-                <FrameLayout
-                    android:id="@+id/statusHolder"
+                <ScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
-                </FrameLayout>
-                <!--<fragment-->
+
+                    <FrameLayout
+                        android:id="@+id/statusHolder"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+                    </FrameLayout>
+                    <!--<fragment-->
                     <!--android:id="@+id/status"-->
                     <!--android:name="com.ursaminoralpha.littlerobot.StatusFragment"-->
                     <!--android:layout_width="match_parent"-->
                     <!--android:layout_height="wrap_content"-->
                     <!--tools:layout="@layout/fragment_status" />-->
-            </ScrollView>
+                </ScrollView>
 
-            <com.ursaminoralpha.littlerobot.MapView
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="Log"
+                        android:textAlignment="center"
+                        android:textSize="16sp"/>
+
+                    <ScrollView
+                        android:id="@+id/scroller"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:clickable="false">
+
+                        <TextView
+                            android:id="@+id/consoleText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="false"
+                            android:textIsSelectable="true"
+                            android:typeface="monospace"/>
+                    </ScrollView>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <com.ursaminoralpha.littlerobot.MapView1stPerson
                 android:id="@+id/imageMap"
                 android:layout_width="0dp"
-                android:layout_height="300dp"
+                android:layout_height="match_parent"
                 android:layout_weight="1"/>
 
         </LinearLayout>
 
-<LinearLayout
-    android:orientation="vertical"
-    android:layout_width="200dp"
-    android:layout_height="wrap_content"
-    android:layout_below="@id/layoutTop">
-        <TextView
-            android:text="Log"
-            android:textAlignment="center"
-            android:textSize="16sp"
-            android:layout_marginBottom="4dp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-        <ScrollView
-            android:id="@+id/scroller"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clickable="false">
 
-            <TextView
-                android:id="@+id/consoleText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clickable="false"
-                android:textIsSelectable="true"
-                android:typeface="monospace" />
-        </ScrollView>
-</LinearLayout>
 
         <Button
             android:id="@+id/buttonForward"

@@ -1,7 +1,6 @@
 package com.ursaminoralpha.littlerobot;
 
 
-import android.graphics.Color;
 import android.graphics.PointF;
 
 import java.util.ArrayList;
@@ -62,7 +61,7 @@ public class Robot{
     }
     private void clearPath(){
         path.clear();
-        mMainAct.sendClearTargets();
+        mMainAct.sendToRemoteClearTargets();
     }
     private void addPath() {
         // I think in this one we should check and only add a new point if it is at least
@@ -74,12 +73,12 @@ public class Robot{
             return;
 
         path.add(newPt);
-        mMainAct.sendAddedTarget(newPt);
+        mMainAct.sendToRemoteAddTarget(newPt);
     }
     private void resendPath(){
-        mMainAct.sendClearTargets();
+        mMainAct.sendToRemoteClearTargets();
         for(PointF pt:path)
-            mMainAct.sendAddedTarget(pt);
+            mMainAct.sendToRemoteAddTarget(pt);
     }
 
     public void tracePathForward(){
@@ -234,7 +233,7 @@ public class Robot{
         mCurrentTarget=0;
         mTargetList.clear();
         changeMode(Modes.STOP);
-        mMainAct.sendClearTargets();
+        mMainAct.sendToRemoteClearTargets();
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////// addTarget() (outdated, not in ui)
@@ -242,7 +241,7 @@ public class Robot{
         mMainAct.dump("Added Target " + mTargetList.size() + "\n");
         mTargetList.add(new Target(mCurTranslation, mYRot));
         mMainAct.speak("target recorded");
-        mMainAct.sendAddedTarget(mCurTranslation.toPointFXY());
+        mMainAct.sendToRemoteAddTarget(mCurTranslation.toPointFXY());
     }
 
 

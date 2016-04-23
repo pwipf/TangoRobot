@@ -11,11 +11,7 @@ package com.ursaminoralpha.littlerobot;
         import android.util.Log;
 
 
-        import java.util.ArrayList;
-        import java.util.List;
-
         import static com.ursaminoralpha.littlerobot.MathUtil.makeAngleInProperRange;
-        import static com.ursaminoralpha.littlerobot.MathUtil.quaternionToAngle;
 //import com.google.atap.tango.ux;
 
 public class TangoFake implements SensorEventListener{
@@ -94,7 +90,7 @@ public class TangoFake implements SensorEventListener{
         // and dT, the event delivery rate
 
         if(event.sensor==mRotSensor){
-            rot=event.values[0]/10;
+            //rot=event.values[0]/10;
         }
         if(event.sensor==mAccel){
             final float alpha = 0.8f;
@@ -112,9 +108,10 @@ public class TangoFake implements SensorEventListener{
             pos=new Vec3(linear_acceleration[1]+pos.x,-linear_acceleration[0]+pos.y,linear_acceleration[2]+pos.z);
        }
         if(newT){
+            rot=(rot+.01);
             mMainAct.setStatusPoseData(pos,(float)rot);
             mRobot.setPose(pos,rot);
-            mMainAct.sendToRemote(pos,(float)rot);
+            mMainAct.sendToRemoteVec3Rot(pos,(float)rot);
             for(int i=1;i<10;i++){
                 float u=1.0f/10*i;
                 mMainAct.sendToRemoteDepth(u,0.5f,.5f);
@@ -274,7 +271,7 @@ public class TangoFake implements SensorEventListener{
                     }
 
                     mRobot.setPose(translation,rot);
-                    mMainAct.sendToRemote(translation,(float)rot);
+                    mMainAct.sendToRemoteVec3Rot(translation,(float)rot);
 
             }
 

@@ -3,7 +3,6 @@ package com.ursaminoralpha.littlerobot;
 // CS 4something Robotics with Hunter
 
 import android.app.Activity;
-import android.app.FragmentManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -26,7 +25,7 @@ import android.widget.TextView;
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
 import static com.ursaminoralpha.littlerobot.StatusFragment.*;
 
-public class MainActivity extends AppCompatActivity implements SetADFNameDialog.CallbackListener{
+public class MainActivity extends AppCompatActivity implements SetADFNameDialog.CallbackListener, RemoteServer.RemoteReceiver{
     String mCurrentUUID="";
 
     // remote control server
@@ -45,8 +44,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     SerialPort mSerialPort;
     Robot mRobot;
-    MapView mMapView;
-    TangoReal mTango;
+    MapView1stPerson mMapView;
+    TangoFake mTango;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -65,7 +64,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         setContentView(R.layout.activity_main);
 
-        mMapView=(MapView)findViewById(R.id.imageMap);
+        mMapView=(MapView1stPerson)findViewById(R.id.imageMap);
 
         Toolbar toolbar=(Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -82,7 +81,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
 
         //initialize Remote control server
-        mRemoteServer=new RemoteServer(this, 6242);
+        mRemoteServer=new RemoteServer(this, 6242, true);
 
         mSerialPort=new SerialPort(this);
 
@@ -94,7 +93,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TangoReal(this, false, true, mCurrentUUID, mRobot);
+        mTango = new TangoFake(this, false, true, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
@@ -108,7 +107,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     @Override
     protected void onStart(){
-        Log.e("TAG", "onStart");
+        Log.w("TAG", "onStart");
         super.onStart();
         mRemoteServer.start();
         mTango.start();
@@ -116,10 +115,10 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     @Override
     protected void onStop(){
-        Log.e("TAG", "onStop");
+        Log.w("TAG", "onStop");
         super.onStop();
         mDumpTextView.append("Pausing...\n");
-        sendToRemote("Server Pausing, will need to reconnect remote");
+        sentToRemoteString("Server Pausing, will need to reconnect remote");
         mRemoteServer.stop();
         mTango.stop();
         mRobot.changeMode(Robot.Modes.STOP); //better stop the robot!
@@ -127,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     @Override
     protected void onDestroy(){
-        Log.e("TAG", "onDestroy");
+        Log.w("TAG", "onDestroy");
         super.onDestroy();
         if(mSerialPort != null)
             unregisterReceiver(mSerialPort.broadcastReceiver);
@@ -135,14 +134,14 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     @Override
     protected void onResume(){
-        Log.e("TAG", "onResume");
+        Log.w("TAG", "onResume");
         super.onResume();
         mSerialPort.open();
     }
 
     @Override
     protected void onPause(){
-        Log.e("TAG", "onPause");
+        Log.w("TAG", "onPause");
         super.onPause();
         mSerialPort.close();
     }
@@ -164,7 +163,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 mDumpScroll.fullScroll(View.FOCUS_DOWN);
 
                 //send text also to Remote
-                sendToRemote(s);
+                sentToRemoteString(s);
             }
         });
     }
@@ -244,10 +243,10 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
             public void run(){
                 if(learningMode){
                     ((Button)findViewById(R.id.buttonLearnADF)).setText("Cancel Learning");
-                    sendToRemote("Learning Mode On");
+                    sentToRemoteString("Learning Mode On");
                 }else{
                     ((Button)findViewById(R.id.buttonLearnADF)).setText("Learn ADF");
-                    sendToRemote("Learning Mode Off");
+                    sentToRemoteString("Learning Mode Off");
                 }
                 setStatusItem(StatusItem.LEARNING, learningMode,true);
             }
@@ -286,11 +285,11 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     }
 
 
-    public void sendToRemote(String s){
+    public void sentToRemoteString(String s){
         mRemoteServer.sendData(SendDataType.STRINGCOMMAND,s,null);
     }
 
-    public void sendToRemote(Vec3 pos, float rot){
+    public void sendToRemoteVec3Rot(Vec3 pos, float rot){
         float[] data={(float)pos.x, (float)pos.y, (float)pos.z, rot};
         mRemoteServer.sendData(SendDataType.POSITIONROTATION,null,data);
     }
@@ -298,23 +297,23 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     public void sendToRemoteDepth(float u, float v, float z){
         float[] data={u,v,z};
         mRemoteServer.sendData(SendDataType.DEPTHDATA,null,data);
+        mMapView.addDepthPt(u,v,z);
     }
 
-    public void sendAddedTarget(PointF pt){
+    public void sendToRemoteAddTarget(PointF pt){
         mMapView.addTarget(pt.x,pt.y, Color.MAGENTA);
         float[] f={pt.x,pt.y};
         mRemoteServer.sendData(SendDataType.TARGETADDED,null,f);
     }
 
-    public void sendClearTargets(){
+    public void sendToRemoteClearTargets(){
         mMapView.clearTargets();
         mRemoteServer.sendData(SendDataType.TARGETSCLEARED,null,null);
     }
 
-    public void sendAllStatusItems(){
-        Log.e("TAG","sendallstatusitems");
+    public void sendToRemoteAllStatusItems(){
         for(StatusItem item : StatusItem.values()){
-            sendToRemote(item.string+'%'+item.currentString);
+            sentToRemoteString(item.string+'%'+item.currentString);
         }
     }
 
@@ -327,7 +326,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         });
 
         if(remoteIt)
-            sendToRemote(item.string + '%' + s);
+            sentToRemoteString(item.string + '%' + s);
     }
 
     private void setStatusItem(StatusItem item, Boolean b,boolean remoteIt){
@@ -371,7 +370,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     }
 
     public void setRobotMap(Vec3 pos, double rot) {
-        sendToRemote(pos, (float) rot);
+        sendToRemoteVec3Rot(pos, (float) rot);
         mMapView.setRobot((float) pos.x, (float) pos.y, (float) rot);
     }
 
@@ -501,4 +500,87 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mCurrentUUID = pref.getString("LastUUID", "");
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////// RemoteReceiver implementations
+    @Override
+    public void onStatusUpdate(String ip, int port, boolean running, int connections){
+        setStatusItem(StatusItem.REMOTEIP, ip,false);
+        setStatusItem(StatusItem.REMOTEPORT, port + "",false);
+        setStatusItem(StatusItem.REMOTERUN, running,false);
+        setStatusItem(StatusItem.REMOTECON, connections + "",false);
+    }
+
+    @Override
+    public void onNewConnection(String remoteIP){
+        sentToRemoteString("Hello from Tango");
+        sendToRemoteAllStatusItems();
+        dump("New Connection with "+remoteIP);
+    }
+
+    @Override
+    public void onReceivedMessage(String msg){
+        switch(msg){
+            case "Forward":
+                actionCommand(Robot.Commands.FORWARD);
+                break;
+            case "Reverse":
+                actionCommand(Robot.Commands.REVERSE);
+                break;
+            case "Stop":
+                actionCommand(Robot.Commands.STOP);
+                break;
+            case "Right":
+                actionCommand(Robot.Commands.SPINRIGHT);
+                break;
+            case "Left":
+                actionCommand(Robot.Commands.SPINLEFT);
+                break;
+            case "Rightish":
+                actionCommand(Robot.Commands.HALFRIGHT);
+                break;
+            case "Leftish":
+                actionCommand(Robot.Commands.HALFLEFT);
+                break;
+            case "Go To Target":
+                actionGo();
+                break;
+            case "Add Target":
+                actionAddTarget();
+                break;
+            case "Clear Targets":
+                actionClearTargets();
+                break;
+            case "Stop Everything":
+                actionStopEverything();
+                break;
+            case "Learn ADF":
+            case "Cancel Learn":
+                actionLearnADF();
+                dump("Learn Command Rxd");
+                break;
+            case "Save ADF":
+                actionSaveADF();
+                dump("Save Command Rxd");
+                break;
+            case "Start Path":
+                mRobot.startSavingPath();
+                break;
+            case "End Path":
+                mRobot.stopSavingPath();
+                break;
+            case "Trace Path Forward":
+                mRobot.tracePathForward();
+                break;
+            case "Trace Path Reverse":
+                mRobot.tracePathReverse();
+                break;
+        }
+        if(msg.startsWith("Save ADF")){
+            Log.w("SAVE","saveadfw name "+msg);
+            String[] substr=msg.split("%");
+            if(substr.length<2)
+                return;
+            dump("Save as command ("+substr[1]+")");
+            actionSaveADFName(substr[1]);
+        }
+    }
 }
