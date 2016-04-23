@@ -526,7 +526,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 actionCommand(Robot.Commands.REVERSE);
                 break;
             case "Stop":
-                actionCommand(Robot.Commands.STOP);
+                //actionCommand(Robot.Commands.STOP);
+                mRobot.changeMode(Robot.Modes.STOP);
                 break;
             case "Right":
                 actionCommand(Robot.Commands.SPINRIGHT);

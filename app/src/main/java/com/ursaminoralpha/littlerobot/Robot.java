@@ -34,25 +34,29 @@ public class Robot{
 
     //////////////////////////////////////////////////////////////////////////////////////////////// path saving stuff
     public void startSavingPath(){
-        mPathStartRotation=mYRot;
-        mSavingPath=true;
-        clearPath();
-        addPath();
+        if(!mSavingPath){
+            mPathStartRotation=mYRot;
+            mSavingPath=true;
+            clearPath();
+            addPath();
+        }
     }
     public void stopSavingPath(){
-        mSavingPath=false;
-        mPathEndRotation=mYRot;
+        if(mSavingPath){
+            mSavingPath=false;
+            mPathEndRotation=mYRot;
 
 
-        // most likely we already stopped motion before sending the stopSavingPath() command,
-        // so if we don't remove the last point before sending the real last one, we end up
-        // with two points on top of each other.
-        if(mMovingState!=Commands.FORWARD){
-            //remove last point before adding new last point
-            subtractPath(path.size()-1);
+            // most likely we already stopped motion before sending the stopSavingPath() command,
+            // so if we don't remove the last point before sending the real last one, we end up
+            // with two points on top of each other.
+            if(mMovingState != Commands.FORWARD){
+                //remove last point before adding new last point
+                subtractPath(path.size() - 1);
+            }
+            //add last point
+            addPath();
         }
-        //add last point
-        addPath();
     }
 
     private void subtractPath(int index){
@@ -66,11 +70,13 @@ public class Robot{
     private void addPath() {
         // I think in this one we should check and only add a new point if it is at least
         // a certain distance from the last one:
-        PointF newPt = mCurTranslation.toPointFXY();
-        PointF lastPt=path.get(path.size()-1);
-        float dist=new PointF(lastPt.x-newPt.x,lastPt.y-newPt.y).length();
-        if(dist<.1f)//10 cm
-            return;
+        PointF newPt=mCurTranslation.toPointFXY();
+            if(path.size()>0){
+                PointF lastPt=path.get(path.size() - 1);
+            float dist=new PointF(lastPt.x - newPt.x, lastPt.y - newPt.y).length();
+            if(dist<.1f)//10 cm
+                return;
+        }
 
         path.add(newPt);
         mMainAct.sendToRemoteAddTarget(newPt);
