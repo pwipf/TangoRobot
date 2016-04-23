@@ -31,7 +31,8 @@ enum SendDataType{
     POSITIONROTATION(Type.FLOAT,4),
     STRINGCOMMAND(Type.STRING,0),
     TARGETADDED(Type.FLOAT,2),
-    TARGETSCLEARED(Type.NONE,0);
+    TARGETSCLEARED(Type.NONE,0),
+    DEPTHDATA(Type.FLOAT,3);
     Type type;
     int numVals;
     SendDataType(Type t, int n){type=t;numVals=n;}

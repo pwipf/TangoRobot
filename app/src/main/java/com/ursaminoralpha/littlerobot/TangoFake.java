@@ -38,7 +38,7 @@ public class TangoFake implements SensorEventListener{
     SensorManager mSensorManager;
     private final Sensor mAccel,mRotSensor;
 
-    TangoFake(MainActivity mainActivity, final boolean learningMode, final String adfName, Robot robot){
+    TangoFake(MainActivity mainActivity, final boolean learningMode,boolean depth, final String adfName, Robot robot){
         mMainAct=mainActivity;
         mRobot=robot;
         mTangoReady=true;
@@ -110,11 +110,16 @@ public class TangoFake implements SensorEventListener{
             linear_acceleration[2] = (event.values[2]*factor - gravity[2]);
             newT=true;
             pos=new Vec3(linear_acceleration[1]+pos.x,-linear_acceleration[0]+pos.y,linear_acceleration[2]+pos.z);
-        }
+       }
         if(newT){
             mMainAct.setStatusPoseData(pos,(float)rot);
             mRobot.setPose(pos,rot);
             mMainAct.sendToRemote(pos,(float)rot);
+            for(int i=1;i<10;i++){
+                float u=1.0f/10*i;
+                mMainAct.sendToRemoteDepth(u,0.5f,.5f);
+            }
+
             newT=false;
             //newR=false;
         }

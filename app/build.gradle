@@ -30,4 +30,12 @@ dependencies {
     compile 'com.android.support:design:23.2.1'
     compile 'com.android.support:support-v4:23.2.1'
     compile 'com.github.felHR85:UsbSerial:4.2'
+
+    compile(name: 'TangoSupport_Kajam_Java', ext:'aar')
+}
+
+repositories{
+    flatDir{
+        dirs 'libs'
+    }
 }

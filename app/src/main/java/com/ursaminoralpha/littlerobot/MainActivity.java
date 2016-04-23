@@ -7,6 +7,7 @@ import android.app.FragmentManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.PointF;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -93,7 +94,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TangoReal(this, false, mCurrentUUID, mRobot);
+        mTango = new TangoReal(this, false, true, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
@@ -120,8 +121,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mDumpTextView.append("Pausing...\n");
         sendToRemote("Server Pausing, will need to reconnect remote");
         mRemoteServer.stop();
-        mRobot.stop(); //better stop the robot!
         mTango.stop();
+        mRobot.changeMode(Robot.Modes.STOP); //better stop the robot!
     }
 
     @Override
@@ -294,11 +295,17 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mRemoteServer.sendData(SendDataType.POSITIONROTATION,null,data);
     }
 
-    public void sendAddedTarget(float x,float y){
-        mMapView.addTarget(x,y, Color.MAGENTA);
-        float[] f={x,y};
+    public void sendToRemoteDepth(float u, float v, float z){
+        float[] data={u,v,z};
+        mRemoteServer.sendData(SendDataType.DEPTHDATA,null,data);
+    }
+
+    public void sendAddedTarget(PointF pt){
+        mMapView.addTarget(pt.x,pt.y, Color.MAGENTA);
+        float[] f={pt.x,pt.y};
         mRemoteServer.sendData(SendDataType.TARGETADDED,null,f);
     }
+
     public void sendClearTargets(){
         mMapView.clearTargets();
         mRemoteServer.sendData(SendDataType.TARGETSCLEARED,null,null);
@@ -410,7 +417,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         runOnUiThread(new Runnable(){
             @Override
             public void run(){
-                mRobot.stopEverything();
+                mRobot.changeMode(Robot.Modes.STOP);
             }
         });
 
@@ -493,4 +500,5 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mRobot.mSettings.updateInterval=pref.getFloat("UpdateRate", 100.0f);
         mCurrentUUID = pref.getString("LastUUID", "");
     }
+
 }

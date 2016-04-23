@@ -10,22 +10,10 @@ import static com.ursaminoralpha.littlerobot.MathUtil.makeAngleInProperRange;
 
 public class Robot{
 
+    //////////////////////////////////////////////////////////////////////////////////////////////// Member variables
     private Commands mMovingState=Commands.STOP;
     private Modes mMode=Modes.STOP;
-
     MainActivity mMainAct;
-
-    private class Target{
-        Vec3 pos;
-        double rot;
-
-        Target(Vec3 p, double r){
-            pos=p;
-            rot=r;
-        }
-    }
-
-
     private ArrayList<Target> mTargetList=new ArrayList<>();
     private static int mCurrentTarget=0;
     private boolean mUseTargetRotation=true;
@@ -43,17 +31,55 @@ public class Robot{
     private boolean mSavingPath=false;
     private double mPathStartRotation;
     private double mPathEndRotation;
-    public void startSavingPath(){
 
+
+    //////////////////////////////////////////////////////////////////////////////////////////////// path saving stuff
+    public void startSavingPath(){
         mPathStartRotation=mYRot;
         mSavingPath=true;
-        path.clear();
+        clearPath();
         addPath();
     }
     public void stopSavingPath(){
         mSavingPath=false;
         mPathEndRotation=mYRot;
+
+
+        // most likely we already stopped motion before sending the stopSavingPath() command,
+        // so if we don't remove the last point before sending the real last one, we end up
+        // with two points on top of each other.
+        if(mMovingState!=Commands.FORWARD){
+            //remove last point before adding new last point
+            subtractPath(path.size()-1);
+        }
+        //add last point
         addPath();
+    }
+
+    private void subtractPath(int index){
+        path.remove(index);
+        resendPath();
+    }
+    private void clearPath(){
+        path.clear();
+        mMainAct.sendClearTargets();
+    }
+    private void addPath() {
+        // I think in this one we should check and only add a new point if it is at least
+        // a certain distance from the last one:
+        PointF newPt = mCurTranslation.toPointFXY();
+        PointF lastPt=path.get(path.size()-1);
+        float dist=new PointF(lastPt.x-newPt.x,lastPt.y-newPt.y).length();
+        if(dist<.1f)//10 cm
+            return;
+
+        path.add(newPt);
+        mMainAct.sendAddedTarget(newPt);
+    }
+    private void resendPath(){
+        mMainAct.sendClearTargets();
+        for(PointF pt:path)
+            mMainAct.sendAddedTarget(pt);
     }
 
     public void tracePathForward(){
@@ -85,7 +111,7 @@ public class Robot{
     }
 
 
-
+    //////////////////////////////////////////////////////////////////////////////////////////////// Enumerations, inner classes
     public enum Commands{
         FORWARD("FORWARD"), SPINRIGHT("SPINRIGHT"), SPINLEFT("SPINLEFT"),
         HALFRIGHT("HALFRIGHT"), HALFLEFT("HALFLEFT"),
@@ -117,10 +143,42 @@ public class Robot{
         }
     }
 
+
+    private class Target{
+        Vec3 pos;
+        double rot;
+
+        Target(Vec3 p, double r){
+            pos=p;
+            rot=r;
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////// Constructor
     //constructor
     public Robot(MainActivity mainAct, SerialPort port){
         this.mMainAct=mainAct;
         mPortDevice=port;
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////// Public methods
+
+    // main "callback" to give robot it's location and set it deciding what to do.
+    public void setPose(Vec3 translation, double rotation){
+        mCurTranslation=translation;
+        mYRot=rotation;
+        mMainAct.setRobotMap(translation, rotation);
+        doYourStuff();
+    }
+
+    public void setLocalized(boolean localized){
+        mLocalized=localized;
+        sendCommand(mLocalized? Commands.BEEPLOWHI : Commands.BEEPHILOW);
+    }
+
+    public boolean isLocalized(){
+        return mLocalized;
     }
 
     public void changeMode(final Modes m){
@@ -171,6 +229,7 @@ public class Robot{
         mMainAct.setStatusRobotMode(m+"");
     }
 
+    //////////////////////////////////////////////////////////////////////////////////////////////// clearTargets() (outdated, not in ui)
     public void clearTargets(){
         mCurrentTarget=0;
         mTargetList.clear();
@@ -178,29 +237,22 @@ public class Robot{
         mMainAct.sendClearTargets();
     }
 
-    public void stopEverything(){
-        mCurrentTarget=0;
-        changeMode(Modes.STOP);
-    }
-
+    //////////////////////////////////////////////////////////////////////////////////////////////// addTarget() (outdated, not in ui)
     public void addTarget(){
         mMainAct.dump("Added Target " + mTargetList.size() + "\n");
         mTargetList.add(new Target(mCurTranslation, mYRot));
         mMainAct.speak("target recorded");
-        mMainAct.sendAddedTarget((float)mCurTranslation.x,(float)mCurTranslation.y);
+        mMainAct.sendAddedTarget(mCurTranslation.toPointFXY());
     }
 
 
+    //////////////////////////////////////////////////////////////////////////////////////////////// sendCommands section
     /////////////////////////
     // sendCommands()
     // This sends the serial commands.
     // if manual is true, command is sent even if the same as lastCommand,
     // and lastCommand is not updated.  This keeps the button-press commands(manual=true)
     // separate from the auto commands
-
-    public void stop(){
-        sendManualCommand(Commands.STOP);
-    }
 
     private void sendCommand(Commands c){
         sendCommandX(c, false);
@@ -210,10 +262,6 @@ public class Robot{
         sendCommandX(c, true);
     }
 
-    private void addPath() {
-        path.add(new PointF((float) mCurTranslation.x, (float) mCurTranslation.y));
-        mMainAct.sendAddedTarget((float) mCurTranslation.x, (float) mCurTranslation.y);
-    }
     private void sendCommandX(Commands c, boolean force){
 
         if (mSavingPath && mMovingState == Commands.FORWARD) {
@@ -301,6 +349,7 @@ public class Robot{
         }
     }
 
+    //////////////////////////////////////////////////////////////////////////////////////////////// automation section
     //This is the interesting stuff, called each time the pose data is updated
     //this is called from pose listener thread, NOT UI
     private void doYourStuff(){
@@ -485,6 +534,7 @@ public class Robot{
     }
 
 
+    //////////////////////////////////////////////////////////////////////////////////////////////// unused "Search" section, in theory what to do if localization lost
     ///Search for Localization
     // in theory go in bigger and bigger  circles to get localized
     // not really working yet... works a bit
@@ -533,21 +583,5 @@ public class Robot{
                     break;
             }
         }
-    }
-
-    public void setLocalized(boolean localized){
-        mLocalized=localized;
-        sendCommand(mLocalized? Commands.BEEPLOWHI : Commands.BEEPHILOW);
-    }
-
-    public boolean isLocalized(){
-        return mLocalized;
-    }
-
-    public void setPose(Vec3 translation, double rotation){
-        mCurTranslation=translation;
-        mYRot=rotation;
-        mMainAct.setRobotMap(translation, rotation);
-        doYourStuff();
     }
 }

@@ -6,6 +6,7 @@ import android.os.SystemClock;
 import com.google.atap.tangoservice.Tango;
 import com.google.atap.tangoservice.Tango.OnTangoUpdateListener;
 import com.google.atap.tangoservice.TangoAreaDescriptionMetaData;
+import com.google.atap.tangoservice.TangoCameraIntrinsics;
 import com.google.atap.tangoservice.TangoConfig;
 import com.google.atap.tangoservice.TangoCoordinateFramePair;
 import com.google.atap.tangoservice.TangoErrorException;
@@ -13,6 +14,8 @@ import com.google.atap.tangoservice.TangoEvent;
 import com.google.atap.tangoservice.TangoOutOfDateException;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.google.atap.tangoservice.TangoXyzIjData;
+
+import com.projecttango.tangosupport.*;
 
 import java.util.ArrayList;
 
@@ -24,11 +27,15 @@ public class TangoReal{
     private static MainActivity mMainAct;
 
     private static Tango mTango;
+    private static TangoCameraIntrinsics mIntrinsics;
+    private static TangoPoseData mLatestPose;
     private static boolean mTangoReady;
     private static boolean mIsTangoServiceConnected;
     private static boolean mPermissionsReady;
     private static boolean mLocalized;
     private static boolean mLearningMode;
+    private static boolean mDepthMode;
+
     private static long mPreviousPoseTime;
     private static int mStatus;
     private static String mCurrentADFName;
@@ -37,11 +44,12 @@ public class TangoReal{
     private static String mLastUUID;
     private Robot mRobot;
 
-    TangoReal(MainActivity mainActivity, final boolean learningMode, final String currentUUID, Robot robot){
+    TangoReal(MainActivity mainActivity, final boolean learningMode, boolean depthMode, final String currentUUID, Robot robot){
         mMainAct=mainActivity;
         mRobot=robot;
         mLastUUID=currentUUID;
         mLearningMode=learningMode;
+        mDepthMode=depthMode;
 
         if(!Tango.hasPermission(mMainAct, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
             mMainAct.startActivityForResult
@@ -81,7 +89,7 @@ public class TangoReal{
                     mMainAct.dump("Could not get ADF Permission");
                 }
                 mPermissionsReady=true;
-                startTangoWithAdfUUID(mLearningMode,mLastUUID);
+                startTangoWithAdfUUID(mLearningMode,mDepthMode,mLastUUID);
                 return 0;
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -108,24 +116,25 @@ public class TangoReal{
 
 
 
-    public void startTangoWithADF(boolean learningMode, String adfFileName){
+    public void startTangoWithADF(boolean learningMode, boolean depthMode, String adfFileName){
         if(!mIsTangoServiceConnected && mPermissionsReady){
-            startTangoWithAdfUUID(learningMode,getUUIDFromADFFileName(adfFileName));
+            startTangoWithAdfUUID(learningMode,depthMode,getUUIDFromADFFileName(adfFileName));
         }
     }
 
     public void start(){
-        startTangoWithAdfUUID(mLearningMode,mLastUUID);
-        mMainAct.dump("Starting with learning: "+mLearningMode);
+        startTangoWithAdfUUID(mLearningMode,mDepthMode,mLastUUID);
+        mMainAct.dump("Starting with learning: "+mLearningMode+", depth: "+mDepthMode);
         mMainAct.dump("UUID: "+mLastUUID);
     }
 
     //This starts the tango service
-    private void startTangoWithAdfUUID(boolean learningMode, String adfUUID){
+    private void startTangoWithAdfUUID(boolean learningMode, boolean depthMode, String adfUUID){
         if(!mIsTangoServiceConnected && mPermissionsReady){
             //set tango config
             TangoConfig config=mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
             config.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, learningMode);
+            config.putBoolean(TangoConfig.KEY_BOOLEAN_DEPTH,depthMode);
             config.putString(TangoConfig.KEY_STRING_AREADESCRIPTION,adfUUID==null? "" : adfUUID);
 
             // get the name of the ADF set in mConfig to store in mCurrentADFName
@@ -144,6 +153,7 @@ public class TangoReal{
                 setTangoListeners();
                 mTango.connect(config);
                 // set some info
+                mIntrinsics=mTango.getCameraIntrinsics(TangoCameraIntrinsics.TANGO_CAMERA_COLOR);
                 mIsTangoServiceConnected=true;
                 mLastUUID=adfUUID;
                 mCurrentADFName=tempName;
@@ -197,9 +207,9 @@ public class TangoReal{
         }
     }
 
-    void restartTango(boolean learningMode, String uuid){
+    void restartTango(boolean learningMode, boolean depthMode, String uuid){
         stop();
-        startTangoWithAdfUUID(learningMode,uuid);
+        startTangoWithAdfUUID(learningMode,depthMode,uuid);
     }
 
 
@@ -286,14 +296,18 @@ public class TangoReal{
                     if(mLocalized != mRobot.isLocalized()){
                         mRobot.setLocalized(mLocalized);
                     }
-
+                    mLatestPose=pose;
                     mRobot.setPose(translation,rot);
                 }
             }
 
             @Override
             public void onXyzIjAvailable(TangoXyzIjData arg0){
-                // Ignoring XyzIj data
+
+                Vec3 dpt=new Vec3(TangoSupport.getDepthAtPointNearestNeighbor(arg0,mIntrinsics,mLatestPose,0.5f,0.5f));
+
+                mMainAct.sendToRemoteDepth(0.5f,0.5f,(float)dpt.z);
+
             }
 
             @Override
@@ -358,7 +372,7 @@ public class TangoReal{
                         mMainAct.dump("Saved ADF as: " + fileName);
                     }
                     mMainAct.dump("Finished Saving, restarting...");
-                    restartTango(false, mLastUUID);
+                    restartTango(false,mDepthMode, mLastUUID);
                 }
             }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
@@ -366,11 +380,11 @@ public class TangoReal{
 
 
     public void startLearnADFmode(String loadADFuuid){
-        restartTango(true,loadADFuuid);
+        restartTango(true,false,loadADFuuid);
     }
 
     public void stopLearnADFmode(){
-        restartTango(false,mLastUUID);
+        restartTango(false,mDepthMode,mLastUUID);
     }
 
     // getters

@@ -1,5 +1,7 @@
 package com.ursaminoralpha.littlerobot;
 
+import android.graphics.PointF;
+
 // simple little vector class
 public class Vec3{
     final double x, y, z;
@@ -8,6 +10,12 @@ public class Vec3{
         this.x=x;
         this.y=y;
         this.z=z;
+    }
+
+    Vec3(float f[]){
+        this.x=f[0];
+        this.y=f[1];
+        this.z=f[2];
     }
 
     // this constructor handles a 4d array as a quaternion, and a 3d array as just a vector
@@ -24,6 +32,10 @@ public class Vec3{
             this.y=q[1];
             this.z=q[2];
         }
+    }
+
+    PointF toPointFXY(){
+        return new PointF((float)x,(float)y);
     }
 
     Vec3(){
