@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     SerialPort mSerialPort;
     Robot mRobot;
     MapView1stPerson mMapView;
-    TangoFake mTango;
+    TangoReal mTango;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -55,9 +55,9 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         // have screen not sleep while this activity running
         findViewById(android.R.id.content).setKeepScreenOn(true);
 
-        WindowManager.LayoutParams params = getWindow().getAttributes();
-        params.screenBrightness = 0;
-        getWindow().setAttributes(params);
+//        WindowManager.LayoutParams params = getWindow().getAttributes();
+//        params.screenBrightness = 0;
+//        getWindow().setAttributes(params);
         //UI Setup
 
         //mMapView=new MapView(this);
@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TangoFake(this, false, true, mCurrentUUID, mRobot);
+        mTango = new TangoReal(this, false, true, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){

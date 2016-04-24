@@ -2,6 +2,7 @@ package com.ursaminoralpha.littlerobot;
 
 import android.os.AsyncTask;
 import android.os.SystemClock;
+import android.util.Log;
 
 import com.google.atap.tangoservice.Tango;
 import com.google.atap.tangoservice.Tango.OnTangoUpdateListener;
@@ -15,7 +16,11 @@ import com.google.atap.tangoservice.TangoOutOfDateException;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.google.atap.tangoservice.TangoXyzIjData;
 
+import com.projecttango.rajawali.DeviceExtrinsics;
+import com.projecttango.rajawali.ScenePoseCalculator;
 import com.projecttango.tangosupport.*;
+
+import org.rajawali3d.math.vector.Vector3;
 
 import java.util.ArrayList;
 
@@ -44,12 +49,22 @@ public class TangoReal{
     private static String mLastUUID;
     private Robot mRobot;
 
+
+    private DeviceExtrinsics mExtrinsics;
+    double mLatestTimeStamp;
+    TangoPointCloudManager mCloudManager;
+    public static final TangoCoordinateFramePair FRAME_PAIR = new TangoCoordinateFramePair(
+            TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE,
+            TangoPoseData.COORDINATE_FRAME_DEVICE);
+
     TangoReal(MainActivity mainActivity, final boolean learningMode, boolean depthMode, final String currentUUID, Robot robot){
         mMainAct=mainActivity;
         mRobot=robot;
         mLastUUID=currentUUID;
         mLearningMode=learningMode;
         mDepthMode=depthMode;
+        mCloudManager = new TangoPointCloudManager();
+        Log.w("???", "???");
 
         if(!Tango.hasPermission(mMainAct, Tango.PERMISSIONTYPE_ADF_LOAD_SAVE)){
             mMainAct.startActivityForResult
@@ -135,6 +150,7 @@ public class TangoReal{
             TangoConfig config=mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
             config.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, learningMode);
             config.putBoolean(TangoConfig.KEY_BOOLEAN_DEPTH,depthMode);
+            config.putBoolean(TangoConfig.KEY_BOOLEAN_COLORCAMERA, depthMode);
             config.putString(TangoConfig.KEY_STRING_AREADESCRIPTION,adfUUID==null? "" : adfUUID);
 
             // get the name of the ADF set in mConfig to store in mCurrentADFName
@@ -153,7 +169,7 @@ public class TangoReal{
                 setTangoListeners();
                 mTango.connect(config);
                 // set some info
-                mIntrinsics=mTango.getCameraIntrinsics(TangoCameraIntrinsics.TANGO_CAMERA_COLOR);
+
                 mIsTangoServiceConnected=true;
                 mLastUUID=adfUUID;
                 mCurrentADFName=tempName;
@@ -171,6 +187,9 @@ public class TangoReal{
 
 
     public void stop(){
+        if (mProbeThread != null) {
+            mProbeThread.interrupt();
+        }
         disconnectTango();
         if(mPermissionsTask!=null && mPermissionsTask.getStatus()!=AsyncTask.Status.FINISHED)
             mPermissionsTask.cancel(true);
@@ -296,7 +315,7 @@ public class TangoReal{
                     if(mLocalized != mRobot.isLocalized()){
                         mRobot.setLocalized(mLocalized);
                     }
-                    mLatestPose=pose;
+                    //mLatestPose=pose;
                     mRobot.setPose(translation,rot);
                 }
             }
@@ -304,9 +323,17 @@ public class TangoReal{
             @Override
             public void onXyzIjAvailable(TangoXyzIjData arg0){
 
-                Vec3 dpt=new Vec3(TangoSupport.getDepthAtPointNearestNeighbor(arg0,mIntrinsics,mLatestPose,0.5f,0.5f));
 
-                mMainAct.sendToRemoteDepth(0.5f,0.5f,(float)dpt.z);
+                mCloudManager.updateXyzIj(arg0);
+                mLatestTimeStamp = arg0.timestamp;
+
+
+//                float[] dpt=TangoSupport.getDepthAtPointNearestNeighbor(arg0,mIntrinsics,mLatestPose,0.5f,0.5f);
+//
+//                if(dpt !=null) {
+//                    mMainAct.sendToRemoteDepth(0.5f, 0.5f, dpt[2]);
+//                    Log.w("XYZIJ ", "dpt: " + dpt[0] + " " + dpt[1] + " " + dpt[2]);
+//                }
 
             }
 
@@ -323,8 +350,91 @@ public class TangoReal{
             }
 
         });
+
+        mExtrinsics = setupExtrinsics(mTango);
+        mIntrinsics = mTango.getCameraIntrinsics(TangoCameraIntrinsics.TANGO_CAMERA_COLOR);
+
+        mProbeThread = new Thread(new Prober());
+        mProbeThread.start();
     }
 
+    boolean mProbing;
+    Thread mProbeThread;
+
+    class Prober implements Runnable {
+        @Override
+        public void run() {
+            while (!Thread.currentThread().isInterrupted()) {
+                Log.w("TAG", "probe");
+                float u = 0, v = 0;
+                Vec3 vec = null;
+                for (int i = 1; i < 10; i++) {
+                    for (int j = 1; j < 10; j++) {
+                        v = j * .1f;
+                        u = i * .1f;
+                        vec = (getDepthAtPosition(u, v, mLatestTimeStamp));
+
+                        if (vec != null)
+                            mMainAct.sendToRemoteDepth(u, v, (float) vec.z);
+                        else
+                            mMainAct.sendToRemoteDepth(u, v, 0);
+                    }
+                }
+                SystemClock.sleep(200);
+            }
+            mProbing = false;
+        }
+    }
+
+    private Vec3 getDepthAtPosition(float u, float v, double rgbTimestamp) {
+        TangoXyzIjData xyzIj = mCloudManager.getLatestXyzIj();
+        if (xyzIj == null) {
+            return null;
+        }
+
+        // We need to calculate the transform between the color camera at the
+        // time the user clicked and the depth camera at the time the depth
+        // cloud was acquired.
+        try {
+            TangoPoseData colorTdepthPose = TangoSupport.calculateRelativePose(
+                    rgbTimestamp, TangoPoseData.COORDINATE_FRAME_CAMERA_COLOR,
+                    xyzIj.timestamp, TangoPoseData.COORDINATE_FRAME_CAMERA_DEPTH);
+            float[] point = TangoSupport.getDepthAtPointNearestNeighbor(xyzIj, mIntrinsics,
+                    colorTdepthPose, u, v);
+            if (point == null) {
+
+                return null;
+            }
+            return new Vec3(point[0], point[1], point[2]);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
+
+//        return ScenePoseCalculator.getPointInEngineFrame(
+//                new Vector3(point[0], point[1], point[2]),
+//                ScenePoseCalculator.matrixToTangoPose(mExtrinsics.getDeviceTDepthCamera()),
+//                mTango.getPoseAtTime(rgbTimestamp, FRAME_PAIR));
+    }
+
+    private static DeviceExtrinsics setupExtrinsics(Tango tango) {
+        // Create camera to IMU transform.
+        TangoCoordinateFramePair framePair = new TangoCoordinateFramePair();
+        framePair.baseFrame = TangoPoseData.COORDINATE_FRAME_IMU;
+        framePair.targetFrame = TangoPoseData.COORDINATE_FRAME_CAMERA_COLOR;
+        TangoPoseData imuTrgbPose = tango.getPoseAtTime(0.0, framePair);
+
+        // Create device to IMU transform.
+        framePair.targetFrame = TangoPoseData.COORDINATE_FRAME_DEVICE;
+        TangoPoseData imuTdevicePose = tango.getPoseAtTime(0.0, framePair);
+
+        // Create depth camera to IMU transform.
+        framePair.targetFrame = TangoPoseData.COORDINATE_FRAME_CAMERA_DEPTH;
+        TangoPoseData imuTdepthPose = tango.getPoseAtTime(0.0, framePair);
+
+        return new DeviceExtrinsics(imuTdevicePose, imuTrgbPose, imuTdepthPose);
+    }
     //helper function
     public String statusText(int status){
         switch(status){

@@ -8,6 +8,7 @@ import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -52,8 +53,10 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     float mRoboPts[]={1, 1, -1, 1, -1, 1, 0, -1, 0, -1, 1, 1, -1.1f, .4f, 1.1f, .4f,
             -1.1f, .9f, -1.1f, -.1f, 1.1f, .9f, 1.1f, -.1f};
 
-    static final int NDEPTHPTS=9 ;
+
+    static final int NDEPTHPTS = 9 * 9;
     PointF[] mDepthPts=new PointF[NDEPTHPTS];
+    float[] mDepthValue = new float[NDEPTHPTS];
     int mDepthIndex=0;
 
     class PointColor{
@@ -99,12 +102,13 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 
     public void addDepthPt(float u,float v,float z){//float[3]
         PointF pt=new PointF(); //in world coords, want to show z dist in front of robot, with u,v = .5 (middle of camera), will need some calibration
-        pt.y=z*10;
-        pt.x=(u-.5f)*10; //0 for uv .5
-        float[] fpt={pt.x,pt.y};
-        //mRobotModel.mapPoints(fpt);
-        mDepthPts[mDepthIndex]=new PointF(fpt[0],fpt[1]);
+        pt.y = ((1 - v) - .5f) * 14 + 10;
+        pt.x = ((u - .5f) * 14) * (1 + ((1 - v) * .4f)); //0 for uv .5
+        mDepthPts[mDepthIndex] = new PointF(pt.x, pt.y);
+        mDepthValue[mDepthIndex] = z;
         mDepthIndex++;if(mDepthIndex==NDEPTHPTS)mDepthIndex=0;
+
+        //Log.e("NUM",pt.x+" "+pt.y);
 
         //schedule timer to remove point in 1 second
         //new Timer().schedule(new RemoveDepthPtTask(index),1000);
@@ -127,12 +131,18 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 //        PointF dp=toDevice(mTargets.get(i).pt);
 //        paint[0].setColor(mTargets.get(i).col);
 
-        for(PointF pt:mDepthPts){
-            float[] fpt={pt.x,pt.y};
+        for (int i = 0; i < NDEPTHPTS; i++) {
+            float[] fpt = {mDepthPts[i].x, mDepthPts[i].y};
             mRobotModel.mapPoints(fpt);
             mWorldToScreenCenter.mapPoints(fpt);
             paint[4].setColor(Color.rgb(0,150,100));
-            canvas.drawCircle(fpt[0],fpt[1], 70/NDEPTHPTS, paint[4]);
+            float d = mDepthValue[i] * 5;
+            if (d == 0) {
+                d = 1;
+                paint[4].setColor(Color.BLACK);
+            } else
+                d = Math.min(Math.max(d, 2), 14);
+            canvas.drawCircle(fpt[0], fpt[1], d, paint[4]);
         }
     }
 
@@ -252,6 +262,9 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         //this.setOnTouchListener(this);
         for(int i=0; i<NUM_PAINTS; i++)
             paint[i]=new Paint();
+
+        for (int i = 0; i < NDEPTHPTS; i++)
+            mDepthPts[i] = new PointF();
         paint[0].setStyle(Paint.Style.FILL);
         paint[0].setColor(Color.RED);
         paint[1].setColor(Color.rgb(0, 180, 0));
