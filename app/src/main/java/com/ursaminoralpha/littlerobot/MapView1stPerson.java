@@ -47,6 +47,7 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     Paint mRobotPaint=new Paint();
     Paint mWheelPaint=new Paint();
     Paint mBlackPaint=new Paint();
+    Paint obstPaint=new Paint();
     PointF mRobotLoc=new PointF();
     Matrix mRobotModel=new Matrix();
     float mRobotRot=0;
@@ -54,10 +55,16 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
             -1.1f, .9f, -1.1f, -.1f, 1.1f, .9f, 1.1f, -.1f};
 
 
-    static final int NDEPTHPTS = 9 * 9;
+    static final int NDEPTHPTS = 9;
     PointF[] mDepthPts=new PointF[NDEPTHPTS];
     float[] mDepthValue = new float[NDEPTHPTS];
     int mDepthIndex=0;
+
+
+    static final int NOBSTPTS=2000;
+    float[] obstPt = new float[NOBSTPTS];
+    float[] obstBuf = new float[NOBSTPTS];
+    int nObstPt,nObstPtUsed;
 
     class PointColor{
         PointF pt;
@@ -93,11 +100,55 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 
         canvas.drawRect(1, 1, mSize.x, mSize.y - 1, mBlackPaint);
         drawDepthPts(canvas);
+        drawObstPts(canvas);
     }
 
     public void addTarget(float x, float y, Integer col){
         mTargets.add(new PointColor(new PointF(x, y), col));
         postInvalidate();
+    }
+
+    public void clearObstacles(){
+        nObstPt=0;
+        nObstPtUsed=0;
+        postInvalidate();
+    }
+
+    public void addObstPt(float x,float z){
+        float[] t={x,z};
+        //mRobotModelInverse.mapPoints(t);
+//        mWorldInverse.mapPoints(t);
+        //mRobotModelInverse.mapPoints(t);
+
+        //search if point is already in list
+        boolean found=false;
+        float thresh=.07f;
+        for(int i=0;i<obstPt.length/2;i++){
+            float tx=obstPt[i*2];
+            float ty=obstPt[i*2+1];
+            if(Math.abs(tx-t[0])<thresh && Math.abs(ty-t[1])<thresh){
+                found=true;
+                break;
+            }
+        }
+
+        if(!found) {
+            obstPt[nObstPt * 2] = t[0];
+            obstPt[nObstPt * 2 + 1] = t[1];
+            nObstPt++;
+            if (nObstPt == obstPt.length / 2)
+                nObstPt = 0;
+
+            nObstPtUsed++;
+            nObstPtUsed=Math.min(nObstPtUsed,obstPt.length/2);
+        }
+    }
+    private void drawObstPts(Canvas canvas){
+        mWorldToScreen.mapPoints(obstBuf,obstPt);
+        for(int i=0;i<nObstPtUsed;i++){
+            canvas.drawCircle(obstBuf[i*2],obstBuf[i*2+1],4,obstPaint);
+        }
+        //canvas.drawPoints(obstBuf,obstPaint);
     }
 
     public void addDepthPt(float u,float v,float z){//float[3]
@@ -278,6 +329,9 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         paint[4].setStyle(Paint.Style.STROKE);
         paint[4].setStrokeWidth(2);
         paint[4].setColor(Color.rgb(200,100,40));
+        obstPaint.setStyle(Paint.Style.STROKE);
+        obstPaint.setColor(Color.rgb(180,0,0));
+        obstPaint.setStrokeWidth(3);
          xAxisPaint.setColor(Color.RED);
         xAxisPaint.setStrokeWidth(2);
         zAxisPaint.setColor(Color.BLUE);

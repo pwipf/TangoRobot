@@ -16,11 +16,8 @@ import com.google.atap.tangoservice.TangoOutOfDateException;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.google.atap.tangoservice.TangoXyzIjData;
 
-import com.projecttango.rajawali.DeviceExtrinsics;
-import com.projecttango.rajawali.ScenePoseCalculator;
 import com.projecttango.tangosupport.*;
 
-import org.rajawali3d.math.vector.Vector3;
 
 import java.util.ArrayList;
 
@@ -49,8 +46,6 @@ public class TangoReal{
     private static String mLastUUID;
     private Robot mRobot;
 
-
-    private DeviceExtrinsics mExtrinsics;
     double mLatestTimeStamp;
     TangoPointCloudManager mCloudManager;
     public static final TangoCoordinateFramePair FRAME_PAIR = new TangoCoordinateFramePair(
@@ -351,37 +346,56 @@ public class TangoReal{
 
         });
 
-        mExtrinsics = setupExtrinsics(mTango);
         mIntrinsics = mTango.getCameraIntrinsics(TangoCameraIntrinsics.TANGO_CAMERA_COLOR);
 
-        mProbeThread = new Thread(new Prober());
+        mMainAct.dump("Finished SetTangoListeners, Starting Prober");
+
+        mProbeThread = new Thread(new DepthProberTask());
         mProbeThread.start();
     }
 
     boolean mProbing;
     Thread mProbeThread;
 
-    class Prober implements Runnable {
+    class DepthProberTask implements Runnable {
         @Override
         public void run() {
-            while (!Thread.currentThread().isInterrupted()) {
-                Log.w("TAG", "probe");
+            while (!Thread.currentThread().isInterrupted()) {//Log.w("TAG", "probe");
                 float u = 0, v = 0;
                 Vec3 vec = null;
                 for (int i = 1; i < 10; i++) {
-                    for (int j = 1; j < 10; j++) {
-                        v = j * .1f;
-                        u = i * .1f;
-                        vec = (getDepthAtPosition(u, v, mLatestTimeStamp));
 
-                        if (vec != null)
-                            mMainAct.sendToRemoteDepth(u, v, (float) vec.z);
-                        else
-                            mMainAct.sendToRemoteDepth(u, v, 0);
+                    u=i*.1f;
+                    float z = 0;
+                    float uavg=0;
+                    int count=0;
+                    //for (int j = 1; j < 10; j++) {
+                    //v=.9f-(j*.01f);
+                    float w;
+                    for(int k=-5;k<5;k++){
+                        w=k*.01f;
+                        vec = (getDepthAtPosition(u+w, .95f, mLatestTimeStamp));
+                        if (vec != null) {
+                            z += vec.z;
+                            uavg+=(vec.x);
+                            count++;
+                        }
+                    }
+                    //}
+                    if(count>0) {
+                        z /= count;
+                        uavg/=count;
+                        mMainAct.sendToRemoteDepth(uavg,v,z);
+
+                        if(z<1){
+                            mMainAct.addObstacle(uavg,z);
+                        }
+                    } else {
+                        mMainAct.sendToRemoteDepth(u,v,0);
                     }
                 }
-                SystemClock.sleep(200);
-            }
+                SystemClock.sleep(500);
+            }//end while loop
             mProbing = false;
         }
     }
@@ -418,23 +432,7 @@ public class TangoReal{
 //                mTango.getPoseAtTime(rgbTimestamp, FRAME_PAIR));
     }
 
-    private static DeviceExtrinsics setupExtrinsics(Tango tango) {
-        // Create camera to IMU transform.
-        TangoCoordinateFramePair framePair = new TangoCoordinateFramePair();
-        framePair.baseFrame = TangoPoseData.COORDINATE_FRAME_IMU;
-        framePair.targetFrame = TangoPoseData.COORDINATE_FRAME_CAMERA_COLOR;
-        TangoPoseData imuTrgbPose = tango.getPoseAtTime(0.0, framePair);
 
-        // Create device to IMU transform.
-        framePair.targetFrame = TangoPoseData.COORDINATE_FRAME_DEVICE;
-        TangoPoseData imuTdevicePose = tango.getPoseAtTime(0.0, framePair);
-
-        // Create depth camera to IMU transform.
-        framePair.targetFrame = TangoPoseData.COORDINATE_FRAME_CAMERA_DEPTH;
-        TangoPoseData imuTdepthPose = tango.getPoseAtTime(0.0, framePair);
-
-        return new DeviceExtrinsics(imuTdevicePose, imuTrgbPose, imuTdepthPose);
-    }
     //helper function
     public String statusText(int status){
         switch(status){

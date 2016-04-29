@@ -3,6 +3,7 @@ package com.ursaminoralpha.littlerobot;
 // CS 4something Robotics with Hunter
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -10,6 +11,8 @@ import android.graphics.PointF;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -21,6 +24,9 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.Locale;
 
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
 import static com.ursaminoralpha.littlerobot.StatusFragment.*;
@@ -45,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     SerialPort mSerialPort;
     Robot mRobot;
     MapView1stPerson mMapView;
-    TangoReal mTango;
+    TangoFake mTango;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -93,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TangoReal(this, false, true, mCurrentUUID, mRobot);
+        mTango = new TangoFake(this, false, true, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
@@ -174,7 +180,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mRobot.sendManualCommand(Commands.BEEPLOW);
         switch(view.getId()){
             case R.id.buttonForward:
-                mRobot.sendManualCommand(Commands.FORWARD);
+                recognizeSpeech("hola");
+                // mRobot.sendManualCommand(Commands.FORWARD);
                 break;
             case R.id.buttonLeft:
                 mRobot.sendManualCommand(Commands.SPINLEFT);
@@ -300,6 +307,11 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mMapView.addDepthPt(u,v,z);
     }
 
+    public void addObstacle(float x,float z){
+        float[] data={x,z};
+        mMapView.addObstPt(x,z);
+        mRemoteServer.sendData(SendDataType.ADDOBSTACLE,null,data);
+    }
     public void sendToRemoteAddTarget(PointF pt){
         mMapView.addTarget(pt.x,pt.y, Color.MAGENTA);
         float[] f={pt.x,pt.y};
@@ -487,8 +499,38 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 mRobot.mSettings=data.getParcelableExtra("settings");
             }
         }
-    }
 
+        if(requestCode==2){
+            if(resultCode==RESULT_OK && null != data){
+                ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+
+                String full="";
+                for(String s:result){
+                    full+=" "+s;
+                }
+                dump(full);
+            }
+        }
+    }
+    public void recognizeSpeech(String p){
+        new AsyncTask<Void, Void, String>(){
+            @Override
+            protected String doInBackground(Void... params) {
+                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "What is your favorite Color");
+                try {
+                    startActivityForResult(intent, 2);
+
+                } catch (ActivityNotFoundException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+        }.execute();
+
+    }
     // read some settings from built in pref file
     void readPrefs(){
         SharedPreferences pref=this.getSharedPreferences("Prefs", Activity.MODE_PRIVATE);

@@ -89,41 +89,47 @@ public class TangoFake implements SensorEventListener{
         // with t, the low-pass filter's time-constant
         // and dT, the event delivery rate
 
-        if(event.sensor==mRotSensor){
+        if(event.sensor == mRotSensor){
             //rot=event.values[0]/10;
         }
-        if(event.sensor==mAccel){
-            final float alpha = 0.8f;
+        if(event.sensor == mAccel){
+            final float alpha=0.8f;
 
             float factor=.1f;
 
-            gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0]*factor;
-            gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1]*factor;
-            gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2]*factor;
+            gravity[0]=alpha*gravity[0] + (1 - alpha)*event.values[0]*factor;
+            gravity[1]=alpha*gravity[1] + (1 - alpha)*event.values[1]*factor;
+            gravity[2]=alpha*gravity[2] + (1 - alpha)*event.values[2]*factor;
 
-            linear_acceleration[0] = (event.values[0]*factor - gravity[0]);
-            linear_acceleration[1] = (event.values[1]*factor - gravity[1]);
-            linear_acceleration[2] = (event.values[2]*factor - gravity[2]);
+            linear_acceleration[0]=(event.values[0]*factor - gravity[0]);
+            linear_acceleration[1]=(event.values[1]*factor - gravity[1]);
+            linear_acceleration[2]=(event.values[2]*factor - gravity[2]);
             newT=true;
-            pos=new Vec3(linear_acceleration[1]+pos.x,-linear_acceleration[0]+pos.y,linear_acceleration[2]+pos.z);
-       }
+            pos=new Vec3(linear_acceleration[1] + pos.x, -linear_acceleration[0] + pos.y, linear_acceleration[2] + pos.z);
+        }
         if(newT){
-            rot=(rot+.01);
-            mMainAct.setStatusPoseData(pos,(float)rot);
-            mRobot.setPose(pos,rot);
-            mMainAct.sendToRemoteVec3Rot(pos,(float)rot);
-            for(int i=1;i<10;i++){
-                float u=1.0f/10*i;
-                mMainAct.sendToRemoteDepth(u,0.5f,.5f);
-            }
+            rot=(rot + .01);
+            //mMainAct.setStatusPoseData(pos, (float)rot);
+            mRobot.setPose(pos, rot);
+            //mMainAct.sendToRemoteVec3Rot(pos, (float)rot);
+            for(int i=1; i<10; i++){
+                for(int j=1; j<10; j++){
+                    float v=j*.1f;
+                    float u=i*.1f;
+                    //vec = (getDepthAtPosition(u, v, mLatestTimeStamp));
 
+                    //if (vec != null)
+                    //    mMainAct.sendToRemoteDepth(u, v, (float) vec.z);
+                    //else
+                    mMainAct.sendToRemoteDepth(u, v, 1);
+                }
+            }
             newT=false;
             //newR=false;
         }
         //double rot=quaternionToAngle(pose.rotation, 1);
         //need to add 90 to rotation to line up with x-axis (basis for atan2(y,x) returned angles)
-       // rot=makeAngleInProperRange(rot + Math.PI/2);
-
+        // rot=makeAngleInProperRange(rot + Math.PI/2);
 
 
     }

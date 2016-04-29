@@ -113,7 +113,7 @@
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonStop"
             android:layout_alignStart="@+id/buttonReverse"
-            android:text="Forward" />
+            android:text="Listen" />
 
         <Button
             android:id="@+id/buttonLeft"

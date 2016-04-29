@@ -1,1 +1,1 @@
-include 'app', 'usbSerialForAndroid', ':java_examples_utils'
+include 'app', 'usbSerialForAndroid'
