@@ -1,6 +1,7 @@
 package com.ursaminoralpha.littlerobot;
 
 
+import android.graphics.Matrix;
 import android.graphics.PointF;
 
 import java.util.ArrayList;
@@ -27,9 +28,12 @@ public class Robot{
 
 
     private ArrayList<PointF> path=new ArrayList<>();
+    private ArrayList<String> pathNames=new ArrayList<>();
     private boolean mSavingPath=false;
     private double mPathStartRotation;
     private double mPathEndRotation;
+
+    private ArrayList<PointF> mObstacleList=new ArrayList<>();
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////// path saving stuff
@@ -61,41 +65,58 @@ public class Robot{
 
     private void subtractPath(int index){
         path.remove(index);
+        pathNames.remove(index);
         resendPath();
     }
     private void clearPath(){
         path.clear();
-        mMainAct.sendToRemoteClearTargets();
+        pathNames.clear();
+        mMainAct.clearTargets();
     }
-    private void addPath() {
+    private void addPath(){addPath(null);}
+    private void addPath(String name) {
         // I think in this one we should check and only add a new point if it is at least
         // a certain distance from the last one:
         PointF newPt=mCurTranslation.toPointFXY();
             if(path.size()>0){
                 PointF lastPt=path.get(path.size() - 1);
             float dist=new PointF(lastPt.x - newPt.x, lastPt.y - newPt.y).length();
-            if(dist<.1f)//10 cm
+            if(dist<.1f && name==null){//10 cm
                 return;
+            }
+            if(dist<.1f){
+                subtractPath(path.size()-1);
+            }
         }
 
+        if(name==null)
+            name=path.size()+"";
         path.add(newPt);
-        mMainAct.sendToRemoteAddTarget(newPt);
+        pathNames.add(name);
+        mMainAct.addTarget(newPt,name);
     }
+
+    public void saveLocation(String name){
+        addPath(name);
+    }
+
     private void resendPath(){
-        mMainAct.sendToRemoteClearTargets();
-        for(PointF pt:path)
-            mMainAct.sendToRemoteAddTarget(pt);
+        mMainAct.clearTargets();
+        for(int i=0;i<path.size();i++)
+            mMainAct.addTarget(path.get(i),pathNames.get(i));
     }
 
     public void tracePathForward(){
         if (path.size() == 0)
             return;
         mTargetList.clear();
+        int i=0;
         for(PointF p:path){
-            Target t=new Target(new Vec3(p.x,p.y,0),0);
+            Target t=new Target(new Vec3(p.x,p.y,0),0,pathNames.get(i));
             if(p==path.get(path.size()-1))
                 t.rot=mPathEndRotation;
             mTargetList.add(t);
+            i++;
         }
         mCurrentTarget = 0;
         changeMode(Modes.GOTOTARGET);
@@ -106,7 +127,7 @@ public class Robot{
         mTargetList.clear();
         for (int i = path.size() - 1; i >= 0; i--) {
             PointF p=path.get(i);
-            Target t=new Target(new Vec3(p.x,p.y,0),0);
+            Target t=new Target(new Vec3(p.x,p.y,0),0,pathNames.get(i));
             if(i==0)
                 t.rot=mPathStartRotation;
             mTargetList.add(t);
@@ -152,10 +173,12 @@ public class Robot{
     private class Target{
         Vec3 pos;
         double rot;
+        String name;
 
-        Target(Vec3 p, double r){
+        Target(Vec3 p, double r, String n){
             pos=p;
             rot=r;
+            name=n;
         }
     }
 
@@ -239,17 +262,63 @@ public class Robot{
         mCurrentTarget=0;
         mTargetList.clear();
         changeMode(Modes.STOP);
-        mMainAct.sendToRemoteClearTargets();
+        mMainAct.clearTargets();
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////// addTarget() (outdated, not in ui)
-    public void addTarget(){
+    public void addTarget(String name){
         mMainAct.dump("Added Target " + mTargetList.size() + "\n");
-        mTargetList.add(new Target(mCurTranslation, mYRot));
+        mTargetList.add(new Target(mCurTranslation, mYRot,name));
         mMainAct.speak("target recorded");
-        mMainAct.sendToRemoteAddTarget(mCurTranslation.toPointFXY());
+        mMainAct.addTarget(mCurTranslation.toPointFXY(),name);
     }
 
+    public void addObstacle(float u, float z){
+        //u z is direct from tango. u = .5 is straight ahead, z= distance ahead
+        mMainAct.dump("Added Obstacle " + mTargetList.size() + "\n");
+        //mTargetList.add(new Target(mCurTranslation, mYRot));
+        float[] pt={u-.5f,z};
+        Matrix rot = new Matrix();
+        rot.preRotate((float)Math.toDegrees(mYRot)-90);
+        rot.mapPoints(pt);
+        PointF obst=new PointF(pt[0],pt[1]);
+        PointF cur=mCurTranslation.toPointFXY();
+        obst.x+=cur.x;
+        obst.y+=cur.y;
+
+        for(PointF p: mObstacleList){
+            float dist = (float)Math.sqrt(Math.pow(p.x-obst.x,2) + Math.pow(p.y-obst.y,2));
+            if(dist < .05f)
+                return;
+        }
+
+        //point not found in list
+        mObstacleList.add(obst);
+        mMainAct.addObstacle(obst.x, obst.y);
+
+    }
+    public void clearObstacles(){
+        mObstacleList.clear();
+        mMainAct.clearedObstacles();
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////// GO TO LOCATION
+    public void goToLocation(String name){
+        for(int i=0;i<pathNames.size();i++){
+            if(pathNames.get(i).equals(name)){
+                goToLocation(i);
+            }
+        }
+    }
+    private void goToLocation(int pathIndex){
+        if(pathIndex == path.size()-1){
+            tracePathForward();
+        }
+        if(pathIndex == 0){
+            tracePathReverse();
+        }
+    }
 
     //////////////////////////////////////////////////////////////////////////////////////////////// sendCommands section
     /////////////////////////
@@ -387,7 +456,7 @@ public class Robot{
             if (mTargetList.size() > 0) {
                 mToTarget = mTargetList.get(mCurrentTarget).pos.subtract(mCurTranslation);
             } else
-                mToTarget = new Target(new Vec3(0, 0, 0), 0).pos.subtract(mCurTranslation);
+                mToTarget = new Target(new Vec3(0, 0, 0), 0,"").pos.subtract(mCurTranslation);
 
             double dist = Math.sqrt(mToTarget.x * mToTarget.x + mToTarget.y * mToTarget.y);
 
@@ -395,14 +464,17 @@ public class Robot{
             //if last target.  First check if the distance is too large and we are NOT on target
             if(mOnTarget){
                 if (dist < mSettings.threshDistBig) { //on target don't move
-                    if(mCurrentTarget == mTargetList.size() - 1){ // on last target
+                    if(mCurrentTarget == mTargetList.size() - 1 || mTargetList.get(mCurrentTarget).name.equals("Target")){ // on last target
                         if(mUseTargetRotation && !mOnTargetRot)
                             changeDirection(mTargetList.get(mCurrentTarget).rot, 0, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
                             changeMode(Modes.STOP);
                             sendCommand(Commands.BEEPLOWHI);
-                            mMainAct.dump("At Final Target");
-                            mMainAct.speak("engaging final target");
+
+                            if(mTargetList.get(mCurrentTarget).name.equals("Target")){
+                                mMainAct.dump("At Final Target");
+                                mMainAct.speak("engaging final target");
+                            }
                         }
                         return;//don't do anything else
 

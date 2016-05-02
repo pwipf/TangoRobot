@@ -17,6 +17,7 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
     EditText mAngleBig;
     EditText mAngleSmall;
     EditText mUpdateInterval;
+    EditText mObstacleHeight;
     @Override
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
@@ -37,6 +38,7 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
         mAngleBig=(EditText) findViewById(R.id.inputAngleBig);
         mAngleSmall=(EditText) findViewById(R.id.inputAngleSmall);
         mUpdateInterval=(EditText) findViewById(R.id.inputUpdate);
+        mObstacleHeight=(EditText) findViewById(R.id.inputObstacle);
         setValues();
     }
 
@@ -49,6 +51,7 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
                 mCurrent.threshAngleSmall=Float.parseFloat(mAngleSmall.getText().toString())/(180/(float)Math.PI);
                 mCurrent.threshAngleBig=Float.parseFloat(mAngleBig.getText().toString())/(180/(float)Math.PI);
                 mCurrent.updateInterval=Float.parseFloat(mUpdateInterval.getText().toString());
+                mCurrent.obstacleHeight=Float.parseFloat(mObstacleHeight.getText().toString());
                 writePrefs();
                 break;
             case R.id.buttonCancel:
@@ -67,6 +70,7 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
         mAngleBig.setText(String.format("%.1f",mCurrent.threshAngleBig*(180/Math.PI)));
         mAngleSmall.setText(String.format("%.1f",mCurrent.threshAngleSmall*(180/Math.PI)));
         mUpdateInterval.setText(String.format("%.0f",mCurrent.updateInterval));
+        mObstacleHeight.setText(String.format("%.1f",mCurrent.obstacleHeight));
     }
 
     void writePrefs(){
@@ -77,6 +81,7 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
         editor.putFloat("ThreshAngleBig",mCurrent.threshAngleBig);
         editor.putFloat("ThreshAngleSmall",mCurrent.threshAngleSmall);
         editor.putFloat("UpdateRate",mCurrent.updateInterval);
+        editor.putFloat("ObstacleHeight",mCurrent.obstacleHeight);
         editor.commit();
     }
 }

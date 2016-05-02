@@ -139,28 +139,51 @@
                 android:text="deg"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
-        </LinearLayout>    <LinearLayout
-        android:id="@+id/linear5"
-        android:layout_below="@+id/linear4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <TextView
-            android:text="Update Rate of Pose Data:"
-            android:layout_width="170dp"
-            android:layout_height="wrap_content"/>
-        <EditText
-            android:id="@+id/inputUpdate"
-            android:text="10.5"
-            android:inputType="numberDecimal"
-            android:layout_width="wrap_content"
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/linear5"
+            android:layout_below="@+id/linear4"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:selectAllOnFocus="true"/>
-        <TextView
-            android:text="ms"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
-    </LinearLayout>
+            android:orientation="horizontal">
+            <TextView
+                android:text="Update Rate of Pose Data:"
+                android:layout_width="170dp"
+                android:layout_height="wrap_content"/>
+            <EditText
+                android:id="@+id/inputUpdate"
+                android:text="10.5"
+                android:inputType="numberDecimal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:selectAllOnFocus="true"/>
+            <TextView
+                android:text="ms"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/linear6"
+            android:layout_below="@+id/linear5"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:text="Obstacle Scan Height:"
+                android:layout_width="170dp"
+                android:layout_height="wrap_content"/>
+            <EditText
+                android:id="@+id/inputObstacle"
+                android:text="0.0"
+                android:inputType="numberDecimal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:selectAllOnFocus="true"/>
+            <TextView
+                android:text="(0 (high) to 0.99 (low)"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
     </RelativeLayout>
 
 

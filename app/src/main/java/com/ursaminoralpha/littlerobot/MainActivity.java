@@ -31,11 +31,14 @@ import java.util.Locale;
 import static com.ursaminoralpha.littlerobot.Robot.Commands;
 import static com.ursaminoralpha.littlerobot.StatusFragment.*;
 
-public class MainActivity extends AppCompatActivity implements SetADFNameDialog.CallbackListener, RemoteServer.RemoteReceiver{
+public class MainActivity extends AppCompatActivity implements SetADFNameDialog.CallbackListener,
+                                                                SetLocationNameDialog.CallbackListenerLocation,
+                                                                RemoteServer.RemoteReceiver{
     String mCurrentUUID="";
 
     // remote control server
     RemoteServer mRemoteServer;
+    String mLocationUse="";
 
     //UI Stuff
     private TextView mDumpTextView;
@@ -51,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     SerialPort mSerialPort;
     Robot mRobot;
     MapView1stPerson mMapView;
-    TangoFake mTango;
+    TangoReal mTango;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -99,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TangoFake(this, false, true, mCurrentUUID, mRobot);
+        mTango = new TangoReal(this, false, true, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
@@ -194,6 +197,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 break;
             case R.id.buttonStop:
                 mRobot.sendManualCommand(Commands.STOP);
+                mRobot.addObstacle(.1f,mRobot.mSettings.obstacleHeight*2);
+                mRobot.addObstacle(.9f,mRobot.mSettings.obstacleHeight*2);
                 break;
             case R.id.buttonCountDown:
                 actionGo();
@@ -230,6 +235,15 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 finish();
                 break;
         }
+    }
+
+    public void actionTangoDepth(final boolean on){
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                mTango.setDepthMode(on);
+            }
+        });
     }
 
     public void actionLearnADF(){
@@ -285,10 +299,14 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     public void actionSaveADFName(String name){
         if(mTango.isLearningMode()){
             mRobot.changeMode(Robot.Modes.STOP);
+            mRobot.stopSavingPath();
             mTango.saveADF(name);
         }else{
             dump("Not Learning");
         }
+    }
+    public void actionSaveLocation(String name){
+        mRobot.saveLocation(name);
     }
 
 
@@ -312,13 +330,21 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mMapView.addObstPt(x,z);
         mRemoteServer.sendData(SendDataType.ADDOBSTACLE,null,data);
     }
-    public void sendToRemoteAddTarget(PointF pt){
-        mMapView.addTarget(pt.x,pt.y, Color.MAGENTA);
+    public void clearedObstacles(){
+        mMapView.clearObstacles();
+        sentToRemoteString("Clear Obstacles");
+    }
+    public void clearedTargets(){
+        mMapView.clearTargets();
+        sentToRemoteString("Clear Targets");
+    }
+    public void addTarget(PointF pt, String name){
+        mMapView.addTarget(pt.x,pt.y, name);
         float[] f={pt.x,pt.y};
-        mRemoteServer.sendData(SendDataType.TARGETADDED,null,f);
+        mRemoteServer.sendData(SendDataType.TARGETADDED,name,f);
     }
 
-    public void sendToRemoteClearTargets(){
+    public void clearTargets(){
         mMapView.clearTargets();
         mRemoteServer.sendData(SendDataType.TARGETSCLEARED,null,null);
     }
@@ -408,7 +434,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         runOnUiThread(new Runnable(){
             @Override
             public void run(){
-                mRobot.changeMode(Robot.Modes.GOTOTARGET);
+                mLocationUse="Go";
+                new SetLocationNameDialog().show(getFragmentManager(), "LocationNameDialog");
             }
         });
     }
@@ -434,15 +461,32 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     }
 
+    public void actionGoToLocation(String name){
+        mRobot.goToLocation(name);
+    }
+
     // add target
     public void actionAddTarget(){
         runOnUiThread(new Runnable(){
             @Override
             public void run(){
-                mRobot.addTarget();
+                mLocationUse="Add";
+                new SetLocationNameDialog().show(getFragmentManager(), "LocationNameDialog");
             }
         });
 
+    }
+
+
+    @Override
+    public void onLocationNameOk(String name){
+        switch(mLocationUse){
+            case "Add":
+                mRobot.addTarget(name);
+                break;
+            case "Go":
+                actionGoToLocation(name);
+        }
     }
 
 
@@ -539,6 +583,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mRobot.mSettings.threshAngleBig = pref.getFloat("ThreshAngleBig", 20.0f / (float) (180 / Math.PI));
         mRobot.mSettings.threshAngleSmall = pref.getFloat("ThreshAngleSmall", 10.0f / (float) (180 / Math.PI));
         mRobot.mSettings.updateInterval=pref.getFloat("UpdateRate", 100.0f);
+        mRobot.mSettings.obstacleHeight=pref.getFloat("ObstacleHeight", .95f);
         mCurrentUUID = pref.getString("LastUUID", "");
     }
 
@@ -586,9 +631,6 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
             case "Go To Target":
                 actionGo();
                 break;
-            case "Add Target":
-                actionAddTarget();
-                break;
             case "Clear Targets":
                 actionClearTargets();
                 break;
@@ -616,14 +658,45 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
             case "Trace Path Reverse":
                 mRobot.tracePathReverse();
                 break;
-        }
-        if(msg.startsWith("Save ADF")){
-            Log.w("SAVE","saveadfw name "+msg);
-            String[] substr=msg.split("%");
-            if(substr.length<2)
-                return;
-            dump("Save as command ("+substr[1]+")");
-            actionSaveADFName(substr[1]);
+            case "Clear All":
+                mRobot.stopSavingPath();
+                mRobot.clearTargets();
+                mRobot.clearObstacles();
+                break;
+
+            case "Depth On":
+                actionTangoDepth(true);
+                break;
+            case "Depth Off":
+                actionTangoDepth(false);
+                break;
+
+            default:
+                if(msg.startsWith("Save ADF")){
+                    Log.w("SAVE","saveadfw name "+msg);
+                    String[] substr=msg.split("%");
+                    if(substr.length<2)
+                        return;
+                    dump("Save as command ("+substr[1]+")");
+                    actionSaveADFName(substr[1]);
+                }
+                if(msg.startsWith("Save Location")){
+                    Log.w("SAVE","savelocation name "+msg);
+                    String[] substr=msg.split("%");
+                    if(substr.length<2)
+                        return;
+                    dump("Save Location command ("+substr[1]+")");
+                    actionSaveLocation(substr[1]);
+                }
+                if(msg.startsWith("Go To Location")){
+                    Log.w("GO","gotolocation name "+msg);
+                    String[] substr=msg.split("%");
+                    if(substr.length<2)
+                        return;
+                    dump("Go To Location command ("+substr[1]+")");
+                    actionGoToLocation(substr[1]);
+                }
+
         }
     }
 }

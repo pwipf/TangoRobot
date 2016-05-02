@@ -268,6 +268,13 @@ public class TangoReal{
                     changed=true;
                     mMainAct.dump("Localized: " + mLocalized);
                     mMainAct.speak(mLocalized ? "Localized" : "Localization Lost");
+
+                    if(mLocalized && mLearningMode){
+                        mRobot.clearObstacles();
+                        mRobot.clearTargets();
+                        mRobot.stopSavingPath();
+                        mRobot.startSavingPath();
+                    }
                 }
 
                 if(pose.statusCode!=mStatus){
@@ -374,7 +381,7 @@ public class TangoReal{
                     float w;
                     for(int k=-5;k<5;k++){
                         w=k*.01f;
-                        vec = (getDepthAtPosition(u+w, .95f, mLatestTimeStamp));
+                        vec = (getDepthAtPosition(u+w, mRobot.mSettings.obstacleHeight, mLatestTimeStamp));
                         if (vec != null) {
                             z += vec.z;
                             uavg+=(vec.x);
@@ -492,7 +499,14 @@ public class TangoReal{
     }
 
     public void stopLearnADFmode(){
+        mRobot.stopSavingPath();
         restartTango(false,mDepthMode,mLastUUID);
+    }
+
+    public void setDepthMode(boolean on){
+        if(on == mDepthMode)
+            return;
+        restartTango(mLearningMode,on,mLastUUID);
     }
 
     // getters

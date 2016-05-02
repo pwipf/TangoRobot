@@ -13,13 +13,15 @@ public class Settings implements Parcelable{
     float threshAngleBig;
     float threshAngleSmall;
     float updateInterval;
+    float obstacleHeight;
     //constructor
-    Settings(float up,float dsmall,float dbig,float asmall, float abig){
+    Settings(float up,float dsmall,float dbig,float asmall, float abig, float obst){
         threshAngleBig=abig;
         threshAngleSmall=asmall;
         threshDistBig=dbig;
         threshDistSmall=dsmall;
         updateInterval=up;
+        obstacleHeight=obst;
     }
     Settings(){
     }
@@ -31,6 +33,7 @@ public class Settings implements Parcelable{
         threshDistBig= in.readFloat();
         threshAngleSmall= in.readFloat();
         threshAngleBig= in.readFloat();
+        obstacleHeight=in.readFloat();
     }
 
     //required for parcelable
@@ -48,6 +51,7 @@ public class Settings implements Parcelable{
         out.writeFloat(threshDistBig);
         out.writeFloat(threshAngleSmall);
         out.writeFloat(threshAngleBig);
+        out.writeFloat(obstacleHeight);
     }
 
     // I don't know how this works.

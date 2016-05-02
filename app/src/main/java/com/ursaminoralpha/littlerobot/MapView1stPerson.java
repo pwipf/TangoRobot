@@ -46,10 +46,14 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     Paint zAxisPaint=new Paint();
     Paint mRobotPaint=new Paint();
     Paint mWheelPaint=new Paint();
+    Paint mTargetPaint=new Paint();
     Paint mBlackPaint=new Paint();
     Paint obstPaint=new Paint();
     PointF mRobotLoc=new PointF();
     Matrix mRobotModel=new Matrix();
+    Matrix mWorldInverse=new Matrix();
+    Matrix mWorldToScreenCenterInverse=new Matrix();
+    Matrix mRobotModelInverse=new Matrix();
     float mRobotRot=0;
     float mRoboPts[]={1, 1, -1, 1, -1, 1, 0, -1, 0, -1, 1, 1, -1.1f, .4f, 1.1f, .4f,
             -1.1f, .9f, -1.1f, -.1f, 1.1f, .9f, 1.1f, -.1f};
@@ -66,18 +70,9 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     float[] obstBuf = new float[NOBSTPTS];
     int nObstPt,nObstPtUsed;
 
-    class PointColor{
-        PointF pt;
-        Integer col;
 
-        PointColor(PointF pt, Integer col){
-            this.pt=pt;
-            this.col=col;
-        }
-    }
-
-    ArrayList<PointColor> mTargets=new ArrayList<>();
-    ArrayList<Integer> mTargetCol=new ArrayList<>();
+    ArrayList<PointF> mTargets=new ArrayList<>();
+    ArrayList<String> mTargetNames=new ArrayList<>();
 
     private static final int NUM_PAINTS=10;
     Paint paint[]=new Paint[NUM_PAINTS];
@@ -91,21 +86,27 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         drawAxex(canvas);
         drawRobot(canvas);
 
-        for(int i=0;i<mTargets.size();i++){
-            PointF dp=toDevice(mTargets.get(i).pt);
-            paint[0].setColor(mTargets.get(i).col);
-            canvas.drawCircle(dp.x, dp.y, 5, paint[0]);
-            canvas.drawText(""+(i+1),dp.x+5,dp.y+5,zAxisPaint);
-        }
+        drawTargets(canvas);
 
         canvas.drawRect(1, 1, mSize.x, mSize.y - 1, mBlackPaint);
         drawDepthPts(canvas);
         drawObstPts(canvas);
     }
 
-    public void addTarget(float x, float y, Integer col){
-        mTargets.add(new PointColor(new PointF(x, y), col));
+    public void addTarget(float x, float y, String name){
+        mTargets.add(new PointF(x, y));
+        mTargetNames.add(name);
         postInvalidate();
+    }
+
+    public void drawTargets(Canvas canvas){
+        int n=1;
+        for(PointF pt :mTargets){
+            PointF dp = toDevice(pt);
+            canvas.drawCircle(dp.x,dp.y,5,mTargetPaint);
+            canvas.drawText(mTargetNames.get(n-1),dp.x+5,dp.y+5,zAxisPaint);
+            n++;
+        }
     }
 
     public void clearObstacles(){
@@ -116,11 +117,8 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 
     public void addObstPt(float x,float z){
         float[] t={x,z};
-        //mRobotModelInverse.mapPoints(t);
-//        mWorldInverse.mapPoints(t);
-        //mRobotModelInverse.mapPoints(t);
 
-        //search if point is already in list
+
         boolean found=false;
         float thresh=.07f;
         for(int i=0;i<obstPt.length/2;i++){
@@ -145,60 +143,41 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     }
     private void drawObstPts(Canvas canvas){
         mWorldToScreen.mapPoints(obstBuf,obstPt);
+        float diam = 4*mScale;
         for(int i=0;i<nObstPtUsed;i++){
-            canvas.drawCircle(obstBuf[i*2],obstBuf[i*2+1],4,obstPaint);
+            canvas.drawCircle(obstBuf[i*2],obstBuf[i*2+1],diam,obstPaint);
         }
         //canvas.drawPoints(obstBuf,obstPaint);
     }
 
-    public void addDepthPt(float u,float v,float z){//float[3]
-        PointF pt=new PointF(); //in world coords, want to show z dist in front of robot, with u,v = .5 (middle of camera), will need some calibration
-        pt.y = ((1 - v) - .5f) * 14 + 10;
-        pt.x = ((u - .5f) * 14) * (1 + ((1 - v) * .4f)); //0 for uv .5
-        mDepthPts[mDepthIndex] = new PointF(pt.x, pt.y);
+    public void addDepthPt(float u,float v,float z){
+        // not using v. u is the x value with .5 being the center.
+
+        mDepthPts[mDepthIndex] = new PointF(u-.5f, z);
         mDepthValue[mDepthIndex] = z;
         mDepthIndex++;if(mDepthIndex==NDEPTHPTS)mDepthIndex=0;
 
-        //Log.e("NUM",pt.x+" "+pt.y);
-
-        //schedule timer to remove point in 1 second
-        //new Timer().schedule(new RemoveDepthPtTask(index),1000);
-    }
-    class RemoveDepthPtTask extends TimerTask{
-        int index;
-        RemoveDepthPtTask(int i){index=i;}
-        public void run(){
-            removeDepthPt(index);
-        }
-    }
-
-    private void removeDepthPt(int index){
-        // mDepthPts.remove(index);
     }
 
     private void drawDepthPts(Canvas canvas){
 
-        //PointF[] pts=mDepthPts.toArray(new PointF[mDepthPts.size()]);
-//        PointF dp=toDevice(mTargets.get(i).pt);
-//        paint[0].setColor(mTargets.get(i).col);
-
+        float diam = 6*mScale;
         for (int i = 0; i < NDEPTHPTS; i++) {
             float[] fpt = {mDepthPts[i].x, mDepthPts[i].y};
-            mRobotModel.mapPoints(fpt);
+            //mRobotModel.mapPoints(fpt);
             mWorldToScreenCenter.mapPoints(fpt);
             paint[4].setColor(Color.rgb(0,150,100));
             float d = mDepthValue[i] * 5;
             if (d == 0) {
-                d = 1;
                 paint[4].setColor(Color.BLACK);
-            } else
-                d = Math.min(Math.max(d, 2), 14);
-            canvas.drawCircle(fpt[0], fpt[1], d, paint[4]);
+            }
+            canvas.drawCircle(fpt[0], fpt[1], diam, paint[4]);
         }
     }
 
     public void clearTargets(){
         mTargets.clear();
+        mTargetNames.clear();
         postInvalidate();
     }
 
@@ -212,13 +191,20 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 
 
 
-        mRobotModel=new Matrix();
-        mRobotModel.setScale(.1f*mScale, .1f*mScale);
+//        mRobotModel=new Matrix();
+//        mRobotModel.setScale(.1f*mScale, .1f*mScale);
 
 
         mCenter.x=x;
         mCenter.y=y;
         mRot=-rot;
+//        setTransform();
+//        postInvalidate();
+
+        mWorldInverse=new Matrix();
+        mWorldInverse.preTranslate(mCenter.x,mCenter.y);
+        mWorldInverse.preRotate(-mRot);
+
         setTransform();
         postInvalidate();
 
@@ -316,6 +302,10 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 
         for (int i = 0; i < NDEPTHPTS; i++)
             mDepthPts[i] = new PointF();
+
+        for(int i=0;i<mRoboPts.length;i++)
+            mRoboPts[i]*=.1f;
+
         paint[0].setStyle(Paint.Style.FILL);
         paint[0].setColor(Color.RED);
         paint[1].setColor(Color.rgb(0, 180, 0));
@@ -343,6 +333,8 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         mBlackPaint.setColor(Color.BLACK);
         mBlackPaint.setStrokeWidth(2);
         mBlackPaint.setStyle(Paint.Style.STROKE);
+        mTargetPaint.setColor(Color.MAGENTA);
+        mTargetPaint.setStyle(Paint.Style.FILL);
         setRobot(1, 1, -30);
     }
 
@@ -362,19 +354,22 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         RectF screen=new RectF(0, 0, mSize.x, mSize.y);
         RectF world=new RectF(-mExtents.x, -mExtents.y, mExtents.x, mExtents.y);
         mWorldToScreen.setRectToRect(world, screen, Matrix.ScaleToFit.CENTER);
-        mWorldToScreen.preScale(1, -1);
+        mWorldToScreen.preScale(mScale, -mScale);
         mWorldToScreenCenter.set(mWorldToScreen);
-        mWorldToScreen.invert(mScreenScaleToWorld);
+        mWorldToScreen.invert(mWorldToScreenCenterInverse);
         mWorldToScreen.preRotate(mRot);
         mWorldToScreen.preTranslate(-mCenter.x, -mCenter.y);
         mWorldToScreen.invert(mScreenScaleTranslate);
-       mWorldToScreen.invert(mScreenToWorld);
-        mWorldToScreen.preScale(mScale,mScale);
+        mWorldToScreen.invert(mScreenToWorld);
+        //mWorldToScreen.preScale(mScale,mScale);
     }
 
     void transform(float dx, float dy, float scl,float rot){
         mScale*=scl;
-        mWorldToScreen.preScale(scl,scl);
+        //mWorldToScreen.preScale(scl,scl);
+        setTransform();
+        //mRobotModel.preScale(scl,scl);
+        //mRobotModel.invert(mRobotModelInverse);
         postInvalidate();
     }
 

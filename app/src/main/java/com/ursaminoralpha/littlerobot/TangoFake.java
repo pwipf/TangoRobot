@@ -113,16 +113,16 @@ public class TangoFake implements SensorEventListener{
             mRobot.setPose(pos, rot);
             //mMainAct.sendToRemoteVec3Rot(pos, (float)rot);
             for(int i=1; i<10; i++){
-                for(int j=1; j<10; j++){
-                    float v=j*.1f;
+                //for(int j=1; j<10; j++){
+                    //float v=j*.1f;
                     float u=i*.1f;
                     //vec = (getDepthAtPosition(u, v, mLatestTimeStamp));
 
                     //if (vec != null)
                     //    mMainAct.sendToRemoteDepth(u, v, (float) vec.z);
                     //else
-                    mMainAct.sendToRemoteDepth(u, v, 1);
-                }
+                    mMainAct.sendToRemoteDepth(u, 0, mRobot.mSettings.obstacleHeight*2);
+                //}
             }
             newT=false;
             //newR=false;
@@ -319,6 +319,11 @@ public class TangoFake implements SensorEventListener{
 
     public void stopLearnADFmode(){
         restartTango(false,mLastUUID);
+    }
+    public void setDepthMode(boolean on){
+//        if(on == mDepthMode)
+//            return;
+//        restartTango(mLearningMode,on,mLastUUID);
     }
 
     // getters

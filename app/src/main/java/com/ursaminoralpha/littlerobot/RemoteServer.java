@@ -30,14 +30,14 @@ import java.util.List;
 enum SendDataType{
     POSITIONROTATION(Type.FLOAT,4),
     STRINGCOMMAND(Type.STRING,0),
-    TARGETADDED(Type.FLOAT,2),
+    TARGETADDED(Type.BOTH,2),
     TARGETSCLEARED(Type.NONE,0),
     DEPTHDATA(Type.FLOAT,3),
     ADDOBSTACLE(Type.FLOAT,2);
     Type type;
     int numVals;
     SendDataType(Type t, int n){type=t;numVals=n;}
-    enum Type{STRING,FLOAT,NONE}
+    enum Type{STRING,FLOAT,NONE,BOTH}
 }
 
 public class RemoteServer{
@@ -189,10 +189,11 @@ public class RemoteServer{
             if(mSocket == null || !mSocket.isConnected() || mOut == null)
                 return;
             try{
+                byte[] b;
                 mOut.writeInt(type.ordinal());
                 switch(type.type){
                     case STRING:
-                        byte[] b=sval.getBytes(StandardCharsets.UTF_8);
+                        b=sval.getBytes(StandardCharsets.UTF_8);
                         mOut.writeInt(b.length);
                         mOut.write(b);
                         break;
@@ -201,6 +202,15 @@ public class RemoteServer{
                             mOut.writeFloat(fvals[i]);
                         break;
                     case NONE:
+                        break;
+                    case BOTH:
+                        for(int i=0; i<type.numVals; i++)
+                            mOut.writeFloat(fvals[i]);
+
+                        b=sval.getBytes(StandardCharsets.UTF_8);
+                        mOut.writeInt(b.length);
+                        mOut.write(b);
+
                         break;
                 }
             }catch(IOException e){
