@@ -7,6 +7,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.RectF;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -59,13 +60,13 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
             -1.1f, .9f, -1.1f, -.1f, 1.1f, .9f, 1.1f, -.1f};
 
 
-    static final int NDEPTHPTS = 9;
+    static final int NDEPTHPTS = 7;
     PointF[] mDepthPts=new PointF[NDEPTHPTS];
     float[] mDepthValue = new float[NDEPTHPTS];
     int mDepthIndex=0;
 
 
-    static final int NOBSTPTS=2000;
+    static final int NOBSTPTS = 30;
     float[] obstPt = new float[NOBSTPTS];
     float[] obstBuf = new float[NOBSTPTS];
     int nObstPt,nObstPtUsed;
@@ -101,12 +102,14 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 
     public void drawTargets(Canvas canvas){
         int n=1;
+        drawing = true;
         for(PointF pt :mTargets){
             PointF dp = toDevice(pt);
             canvas.drawCircle(dp.x,dp.y,5,mTargetPaint);
             canvas.drawText(mTargetNames.get(n-1),dp.x+5,dp.y+5,zAxisPaint);
             n++;
         }
+        drawing = false;
     }
 
     public void clearObstacles(){
@@ -118,19 +121,6 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     public void addObstPt(float x,float z){
         float[] t={x,z};
 
-
-        boolean found=false;
-        float thresh=.07f;
-        for(int i=0;i<obstPt.length/2;i++){
-            float tx=obstPt[i*2];
-            float ty=obstPt[i*2+1];
-            if(Math.abs(tx-t[0])<thresh && Math.abs(ty-t[1])<thresh){
-                found=true;
-                break;
-            }
-        }
-
-        if(!found) {
             obstPt[nObstPt * 2] = t[0];
             obstPt[nObstPt * 2 + 1] = t[1];
             nObstPt++;
@@ -139,7 +129,7 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
 
             nObstPtUsed++;
             nObstPtUsed=Math.min(nObstPtUsed,obstPt.length/2);
-        }
+
     }
     private void drawObstPts(Canvas canvas){
         mWorldToScreen.mapPoints(obstBuf,obstPt);
@@ -150,10 +140,9 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         //canvas.drawPoints(obstBuf,obstPaint);
     }
 
-    public void addDepthPt(float u,float v,float z){
-        // not using v. u is the x value with .5 being the center.
+    public void addDepthPt(float x, float y, float z) {
 
-        mDepthPts[mDepthIndex] = new PointF(u-.5f, z);
+        mDepthPts[mDepthIndex] = new PointF(x, z);
         mDepthValue[mDepthIndex] = z;
         mDepthIndex++;if(mDepthIndex==NDEPTHPTS)mDepthIndex=0;
 
@@ -175,7 +164,11 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         }
     }
 
+    boolean drawing = false;
     public void clearTargets(){
+        while (drawing) {
+            SystemClock.sleep(10);
+        }
         mTargets.clear();
         mTargetNames.clear();
         postInvalidate();
@@ -270,8 +263,6 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     }
 
     PointF toDevice(PointF p){
-        float x=(p.x - mCenter.x)*mSize.x/mExtents.x;
-        float y=(p.y - mCenter.y)*mSize.y/mExtents.y;
         float pt[]={p.x, p.y};
         float dest[]=new float[2];
         mWorldToScreen.mapPoints(dest, pt);

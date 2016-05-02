@@ -36,7 +36,7 @@ public class TangoReal{
     private static boolean mPermissionsReady;
     private static boolean mLocalized;
     private static boolean mLearningMode;
-    private static boolean mDepthMode;
+    public static boolean mDepthMode;
 
     private static long mPreviousPoseTime;
     private static int mStatus;
@@ -84,6 +84,7 @@ public class TangoReal{
 
         //Why??? does not find any saved UUIDs later without this line. I don't know why.
         mTango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
+
         mPermissionsTask = new AsyncTask<Void,Void,Integer>(){
             @Override
             protected Integer doInBackground(Void... params){
@@ -269,11 +270,14 @@ public class TangoReal{
                     mMainAct.dump("Localized: " + mLocalized);
                     mMainAct.speak(mLocalized ? "Localized" : "Localization Lost");
 
+
                     if(mLocalized && mLearningMode){
                         mRobot.clearObstacles();
                         mRobot.clearTargets();
                         mRobot.stopSavingPath();
                         mRobot.startSavingPath();
+                    } else if (mLocalized) {
+                        mRobot.clearObstacles();
                     }
                 }
 
@@ -353,12 +357,15 @@ public class TangoReal{
 
         });
 
-        mIntrinsics = mTango.getCameraIntrinsics(TangoCameraIntrinsics.TANGO_CAMERA_COLOR);
+        if (mDepthMode) {
+            mIntrinsics = mTango.getCameraIntrinsics(TangoCameraIntrinsics.TANGO_CAMERA_COLOR);
 
-        mMainAct.dump("Finished SetTangoListeners, Starting Prober");
+            mMainAct.dump("Finished SetTangoListeners, Starting Prober");
 
-        mProbeThread = new Thread(new DepthProberTask());
-        mProbeThread.start();
+            mProbeThread = new Thread(new DepthProberTask());
+            mProbeThread.start();
+        }
+        mRobot.clearObstacles();
     }
 
     boolean mProbing;
@@ -367,10 +374,10 @@ public class TangoReal{
     class DepthProberTask implements Runnable {
         @Override
         public void run() {
-            while (!Thread.currentThread().isInterrupted()) {//Log.w("TAG", "probe");
+            while (!Thread.currentThread().isInterrupted() && mDepthMode) {//Log.w("TAG", "probe");
                 float u = 0, v = 0;
                 Vec3 vec = null;
-                for (int i = 1; i < 10; i++) {
+                for (int i = 2; i <= 8; i++) {
 
                     u=i*.1f;
                     float z = 0;
@@ -394,14 +401,17 @@ public class TangoReal{
                         uavg/=count;
                         mMainAct.sendToRemoteDepth(uavg,v,z);
 
-                        if(z<1){
-                            mMainAct.addObstacle(uavg,z);
-                        }
+                        if (z < .6 && z > .2f) {
+                            mRobot.addObstacle(uavg, z);
+                        } else
+                            mRobot.addObstacle(0, 0);
+
                     } else {
-                        mMainAct.sendToRemoteDepth(u,v,0);
+                        mMainAct.sendToRemoteDepth(u - .5f, v, 0);
+                        mRobot.addObstacle(0, 0);
                     }
                 }
-                SystemClock.sleep(500);
+                SystemClock.sleep(200);
             }//end while loop
             mProbing = false;
         }
@@ -432,11 +442,6 @@ public class TangoReal{
         }
 
         return null;
-
-//        return ScenePoseCalculator.getPointInEngineFrame(
-//                new Vector3(point[0], point[1], point[2]),
-//                ScenePoseCalculator.matrixToTangoPose(mExtrinsics.getDeviceTDepthCamera()),
-//                mTango.getPoseAtTime(rgbTimestamp, FRAME_PAIR));
     }
 
 
@@ -506,7 +511,8 @@ public class TangoReal{
     public void setDepthMode(boolean on){
         if(on == mDepthMode)
             return;
-        restartTango(mLearningMode,on,mLastUUID);
+        mDepthMode = on;
+        restartTango(mLearningMode, mDepthMode, mLastUUID);
     }
 
     // getters

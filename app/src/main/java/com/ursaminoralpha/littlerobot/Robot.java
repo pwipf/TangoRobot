@@ -3,7 +3,9 @@ package com.ursaminoralpha.littlerobot;
 
 import android.graphics.Matrix;
 import android.graphics.PointF;
+import android.os.SystemClock;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 import static com.ursaminoralpha.littlerobot.MathUtil.makeAngleInProperRange;
@@ -28,18 +30,29 @@ public class Robot{
 
 
     private ArrayList<PointF> path=new ArrayList<>();
-    private ArrayList<String> pathNames=new ArrayList<>();
+    public ArrayList<String> pathNames = new ArrayList<>();
+    private ArrayList<Float> pathRotations = new ArrayList<>();
     private boolean mSavingPath=false;
     private double mPathStartRotation;
     private double mPathEndRotation;
 
-    private ArrayList<PointF> mObstacleList=new ArrayList<>();
+    //private ArrayList<PointF> mObstacleList=new ArrayList<>();
+
+    private static final int NOBST = 30;
+    private PointF[] mObstacleList = new PointF[NOBST];
+    private int obstListIndex = 0;
+
+    private long mEngageTime;
+    private static final long mEngageGoTime = 2000;
+
+    private Object sendLock = new Object();
+    private PointF mPtInFront = new PointF(0, 0);
+    private static final float OBSTHRESH = .1f;
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////// path saving stuff
     public void startSavingPath(){
         if(!mSavingPath){
-            mPathStartRotation=mYRot;
             mSavingPath=true;
             clearPath();
             addPath();
@@ -48,29 +61,20 @@ public class Robot{
     public void stopSavingPath(){
         if(mSavingPath){
             mSavingPath=false;
-            mPathEndRotation=mYRot;
 
-
-            // most likely we already stopped motion before sending the stopSavingPath() command,
-            // so if we don't remove the last point before sending the real last one, we end up
-            // with two points on top of each other.
-            if(mMovingState != Commands.FORWARD){
-                //remove last point before adding new last point
-                subtractPath(path.size() - 1);
-            }
-            //add last point
-            addPath();
         }
     }
 
     private void subtractPath(int index){
         path.remove(index);
         pathNames.remove(index);
+        pathRotations.remove(index);
         resendPath();
     }
     private void clearPath(){
         path.clear();
         pathNames.clear();
+        pathRotations.clear();
         mMainAct.clearTargets();
     }
     private void addPath(){addPath(null);}
@@ -78,10 +82,11 @@ public class Robot{
         // I think in this one we should check and only add a new point if it is at least
         // a certain distance from the last one:
         PointF newPt=mCurTranslation.toPointFXY();
+        float rot = (float) mYRot;
             if(path.size()>0){
                 PointF lastPt=path.get(path.size() - 1);
             float dist=new PointF(lastPt.x - newPt.x, lastPt.y - newPt.y).length();
-            if(dist<.1f && name==null){//10 cm
+                if (dist < .4f && name == null) {//10 cm
                 return;
             }
             if(dist<.1f){
@@ -93,11 +98,13 @@ public class Robot{
             name=path.size()+"";
         path.add(newPt);
         pathNames.add(name);
+        pathRotations.add(rot);
         mMainAct.addTarget(newPt,name);
     }
 
     public void saveLocation(String name){
         addPath(name);
+        mMainAct.speak(name + " recorded");
     }
 
     private void resendPath(){
@@ -106,30 +113,29 @@ public class Robot{
             mMainAct.addTarget(path.get(i),pathNames.get(i));
     }
 
-    public void tracePathForward(){
+    public void tracePathForward(int start) {
         if (path.size() == 0)
             return;
+
         mTargetList.clear();
-        int i=0;
-        for(PointF p:path){
-            Target t=new Target(new Vec3(p.x,p.y,0),0,pathNames.get(i));
-            if(p==path.get(path.size()-1))
-                t.rot=mPathEndRotation;
+
+        for (int i = start; i < path.size(); i++) {
+            Target t = new Target(new Vec3(path.get(i).x, path.get(i).y, 0), pathRotations.get(i), pathNames.get(i));
             mTargetList.add(t);
-            i++;
         }
         mCurrentTarget = 0;
         changeMode(Modes.GOTOTARGET);
     }
-    public void tracePathReverse(){
+
+    public void tracePathReverse(int start) {
         if (path.size() == 0)
             return;
+
         mTargetList.clear();
-        for (int i = path.size() - 1; i >= 0; i--) {
+
+        for (int i = start; i >= 0; i--) {
             PointF p=path.get(i);
-            Target t=new Target(new Vec3(p.x,p.y,0),0,pathNames.get(i));
-            if(i==0)
-                t.rot=mPathStartRotation;
+            Target t = new Target(new Vec3(p.x, p.y, 0), pathRotations.get(i), pathNames.get(i));
             mTargetList.add(t);
         }
         mCurrentTarget = 0;
@@ -156,7 +162,8 @@ public class Robot{
     }
 
     public enum Modes{
-        STOP("STOP"), GOTOTARGET("GOTOTARGET"), SEARCHLOC("SEARCH");
+        STOP("STOP"), GOTOTARGET("GOTOTARGET"), SEARCHLOC("SEARCH"), ENGAGE("ENGAGE"),
+        DISENGAGE("DISENGAGE"), WAITFOROBST("WAITFOROBST");
         String name;
 
         Modes(String s){
@@ -187,6 +194,10 @@ public class Robot{
     public Robot(MainActivity mainAct, SerialPort port){
         this.mMainAct=mainAct;
         mPortDevice=port;
+
+        for (int i = 0; i < NOBST; i++) {
+            mObstacleList[i] = new PointF(0, 0);
+        }
     }
 
 
@@ -221,6 +232,18 @@ public class Robot{
                 break;
         }
         switch(m){ // to mode
+            case ENGAGE:
+                sendCommand(Commands.FORWARD);
+                mEngageTime = System.currentTimeMillis();
+                break;
+            case DISENGAGE:
+                sendCommand(Commands.REVERSE);
+                mEngageTime = System.currentTimeMillis();
+                break;
+            case WAITFOROBST:
+                sendCommand(Commands.STOP);
+                mMainAct.speak("Something in the way");
+                break;
             case STOP:
                 sendManualCommand(Commands.STOP);
                 break;
@@ -229,11 +252,11 @@ public class Robot{
                     mMainAct.dump("No Targets");
                     return;
                 }
-                sendCommand(Commands.BEEPHI);
+                //sendCommand(Commands.BEEPHI);
                 mOnTarget=false;
                 mOnTargetRot=false;
-                mMainAct.speak("Going to target");
-                mMainAct.dump("Going to Target " + mCurrentTarget);
+                mMainAct.speak("Going to " + mTargetList.get(mTargetList.size() - 1).name);
+                //mMainAct.dump("Going to Target " + mCurrentTarget);
                 break;
             case SEARCHLOC:
 //                searchForLocalization(true);
@@ -273,32 +296,40 @@ public class Robot{
         mMainAct.addTarget(mCurTranslation.toPointFXY(),name);
     }
 
+    PointF extendUZ(PointF uz, float curRot, PointF current) {
+        float[] pt = {uz.x, uz.y};
+        Matrix rot = new Matrix();
+        rot.preRotate((float) Math.toDegrees(curRot) - 90);
+        rot.mapPoints(pt);
+        PointF ext = new PointF(pt[0], pt[1]);
+        ext.x += current.x;
+        ext.y += current.y;
+        return ext;
+    }
+
     public void addObstacle(float u, float z){
         //u z is direct from tango. u = .5 is straight ahead, z= distance ahead
-        mMainAct.dump("Added Obstacle " + mTargetList.size() + "\n");
-        //mTargetList.add(new Target(mCurTranslation, mYRot));
-        float[] pt={u-.5f,z};
-        Matrix rot = new Matrix();
-        rot.preRotate((float)Math.toDegrees(mYRot)-90);
-        rot.mapPoints(pt);
-        PointF obst=new PointF(pt[0],pt[1]);
-        PointF cur=mCurTranslation.toPointFXY();
-        obst.x+=cur.x;
-        obst.y+=cur.y;
 
-        for(PointF p: mObstacleList){
-            float dist = (float)Math.sqrt(Math.pow(p.x-obst.x,2) + Math.pow(p.y-obst.y,2));
-            if(dist < .05f)
-                return;
-        }
+        PointF obst = extendUZ(new PointF(u, z), (float) mYRot, mCurTranslation.toPointFXY());
+
+//        for(PointF p: mObstacleList){
+//            float dist = (float)Math.sqrt(Math.pow(p.x-obst.x,2) + Math.pow(p.y-obst.y,2));
+//            if(dist < .02f)
+//                return;
+//        }
 
         //point not found in list
-        mObstacleList.add(obst);
+        //mObstacleList.add(obst);
+        mObstacleList[obstListIndex] = new PointF(u, z);
+        obstListIndex++;
+        if (obstListIndex == NOBST) obstListIndex = 0;
         mMainAct.addObstacle(obst.x, obst.y);
 
     }
     public void clearObstacles(){
-        mObstacleList.clear();
+        //mObstacleList.clear();
+        for (int i = 0; i < NOBST; i++)
+            mObstacleList[i].set(0, 0);
         mMainAct.clearedObstacles();
     }
 
@@ -311,12 +342,31 @@ public class Robot{
             }
         }
     }
-    private void goToLocation(int pathIndex){
-        if(pathIndex == path.size()-1){
-            tracePathForward();
+
+    public void goToLocation(int pathIndex) {
+
+        stopSavingPath();
+
+        PointF curpt = mCurTranslation.toPointFXY();
+
+        PointF closest = path.get(0);
+        int j = 0;
+        for (int i = 1; i < path.size(); i++) {
+            if (new PointF(curpt.x - path.get(i).x, curpt.y - path.get(i).y).length() <
+                    new PointF(curpt.x - closest.x, curpt.y - closest.y).length()) {
+                closest = path.get(i);
+                j = i;
+            }
         }
-        if(pathIndex == 0){
-            tracePathReverse();
+
+
+        if (pathIndex > j) {
+
+            tracePathForward(j);
+
+        } else if (pathIndex < j) {
+
+            tracePathReverse(j);
         }
     }
 
@@ -350,76 +400,116 @@ public class Robot{
             }
         }
 
+        /// TODO REMOVE
+//        if(c == Commands.FORWARD || c == Commands.STOP||c==Commands.REVERSE
+//                || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
+//                || c == Commands.HALFRIGHT || c == Commands.HALFLEFT){
+//            mMovingState=c;
+//        }
+        ////
+
 
         if(c == mMovingState && !force)
             return;
-        if(c == Commands.FORWARD || c == Commands.STOP||c==Commands.REVERSE
-                || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
-                || c == Commands.HALFRIGHT || c == Commands.HALFLEFT){
-            mMovingState=c;
-        }
 
-        byte buf[]=new byte[2];
+        byte buf[] = new byte[4];
         int n=0;
+        String com = "";
         if(mPortDevice.isOpen()){
             switch(c){
                 case FORWARD:
                     buf[0]='w';
-                    buf[1]='e';
+                    buf[1] = 8;
+                    buf[2] = 'e';
+                    buf[3] = 8;
                     break;
                 case SPINLEFT:
                     buf[0]='e';
-                    buf[1]='x';
+                    buf[1] = 2;
+                    buf[2] = 'x';
+                    buf[3] = 2;
                     break;
                 case HALFLEFT:
                     buf[0]='e';
-                    buf[1]='s';
+                    buf[1] = 2;
+                    buf[2] = 's';
+                    buf[3] = 0;
                     break;
                 case SPINRIGHT:
                     buf[0]='w';
-                    buf[1]='c';
+                    buf[1] = 2;
+                    buf[2] = 'c';
+                    buf[3] = 2;
                     break;
                 case HALFRIGHT:
                     buf[0]='w';
-                    buf[1]='d';
+                    buf[1] = 2;
+                    buf[2] = 'd';
+                    buf[3] = 0;
                     break;
                 case STOP:
                     buf[0]='s';
-                    buf[1]='d';
+                    buf[1] = 0;
+                    buf[2] = 'd';
+                    buf[3] = 0;
                     break;
                 case REVERSE:
                     buf[0]='x';
-                    buf[1]='c';
+                    buf[1] = 2;
+                    buf[2] = 'c';
+                    buf[3] = 2;
                     break;
                 case BEEPHILOW:
                     buf[0]='r';
-                    buf[1]='t';
+                    buf[1] = 16;
+                    buf[2] = 't';
+                    buf[3] = 16;
                     break;
                 case BEEPLOWHI:
                     buf[0]='t';
-                    buf[1]='r';
+                    buf[1] = 16;
+                    buf[2] = 'r';
+                    buf[3] = 16;
                     break;
                 case BEEPHI:
                     buf[0]='r';
-                    buf[1]=' ';
+                    buf[1] = 16;
+                    buf[2] = ' ';
+                    buf[3] = 16;
                     break;
                 case BEEPLOW:
                     buf[0]='t';
-                    buf[1]=' ';
+                    buf[1] = 16;
+                    buf[2] = ' ';
+                    buf[3] = 16;
                     break;
             }
 
             // actually send the command over the port
-            n=mPortDevice.send(new String(buf), 1000);
+
+            try {
+                synchronized (sendLock) {
+                    n = mPortDevice.mPort.write(buf, 1000);
+                }
+            } catch (IOException e) {
+                mMainAct.dump(e.getMessage());
+            }
+        } else {
+            mMainAct.dump("Port not open");
         }
 
         //output an info message
         if(n>0){
             mMainAct.dump(c + " sent");
-            mMainAct.setStatusRobotState(mMovingState+"");
+            //mMainAct.setStatusRobotState(mMovingState+"");
+            if (c == Commands.FORWARD || c == Commands.STOP || c == Commands.REVERSE
+                    || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
+                    || c == Commands.HALFRIGHT || c == Commands.HALFLEFT) {
+                mMovingState = c;
+            }
         }else{
             mMainAct.dump("Tried to send " + c);
-            mMainAct.setStatusRobotState("~"+mMovingState);
+            //mMainAct.setStatusRobotState("~"+mMovingState);
         }
     }
 
@@ -429,30 +519,69 @@ public class Robot{
     private void doYourStuff(){
 
         //READY TO GO!!!
+
+
         switch(mMode){
             case GOTOTARGET:
                 goToTarget();
                 break;
 
+            case WAITFOROBST:
+
+                int count = 0;
+                for (PointF p : mObstacleList) {
+                    if (p.x == 0 && p.y == 0)
+                        continue;
+                    count++;
+                }
+                if (count < 1) {
+                    mMainAct.speak("Path clear");
+                    changeMode(Modes.GOTOTARGET);
+                }
+
+                break;
+
             case STOP:
+                switch (mMovingState) {
+                    case FORWARD:
+                        int npts = 0;
+                        for (PointF p : mObstacleList) {
+                            if (p.x == 0 && p.y == 0)
+                                continue;
+                            npts++;
+                        }
+                        if (npts > 5)
+                            changeMode(Modes.WAITFOROBST);
+                        break;
+                }
                 break;
 
             case SEARCHLOC:
-                //This is done by a timertask not the poselistener thread
-                //searchForLocalization(false);
+
+                break;
+
+            case ENGAGE:
+                if (System.currentTimeMillis() > mEngageTime + mEngageGoTime) {
+                    sendCommand(Commands.STOP);
+                    changeMode(Modes.DISENGAGE);
+                }
+                break;
+            case DISENGAGE:
+                if (System.currentTimeMillis() > mEngageTime + mEngageGoTime) {
+                    sendCommand(Commands.STOP);
+                    changeMode(Modes.STOP);
+                }
                 break;
         }
+    }
+
+    private void engageTarget() {
+        changeMode(Modes.ENGAGE);
     }
 
     // logic to drive toward target
     private void goToTarget() {
         try{
-            //check for errors, just in case, shouldn't be "going to target" in this case
-            if(mTargetList.size() == 0 || mCurrentTarget>=mTargetList.size()){
-                changeMode(Modes.STOP);
-                return;
-            }
-
             if (mTargetList.size() > 0) {
                 mToTarget = mTargetList.get(mCurrentTarget).pos.subtract(mCurTranslation);
             } else
@@ -460,31 +589,56 @@ public class Robot{
 
             double dist = Math.sqrt(mToTarget.x * mToTarget.x + mToTarget.y * mToTarget.y);
 
-            //On a target, or was, need to go to next target, or turn to proper rotation
-            //if last target.  First check if the distance is too large and we are NOT on target
+
+            // look for obstacles
+            if (mMainAct.mTango.mDepthMode && mMovingState == Commands.FORWARD) {
+
+//                float distAhead=.7f;
+//                mPtInFront = extendUZ(new PointF(0,distAhead),(float)mYRot,mCurTranslation.toPointFXY());
+
+                int count = 0;
+                for (PointF p : mObstacleList) {
+                    if (p.x == 0 && p.y == 0)
+                        continue;
+                    count++;
+                }
+                if (count > 3) {
+                    float distToNext = ptDist(mCurTranslation.toPointFXY(), mTargetList.get(mCurrentTarget).pos.toPointFXY());
+                    if ((distToNext < .6f && mTargetList.get(mCurrentTarget).name.equalsIgnoreCase("target")
+                            || distToNext < .2f)) {
+                        //ignore the obstacles
+                    } else {
+                        changeMode(Modes.WAITFOROBST);
+                        return;
+                    }
+                }
+            }
+
+
             if(mOnTarget){
-                if (dist < mSettings.threshDistBig) { //on target don't move
-                    if(mCurrentTarget == mTargetList.size() - 1 || mTargetList.get(mCurrentTarget).name.equals("Target")){ // on last target
+                if (dist <= mSettings.threshDistBig) { //on target don't move
+                    if (mCurrentTarget == mTargetList.size() - 1) { // on last target
                         if(mUseTargetRotation && !mOnTargetRot)
                             changeDirection(mTargetList.get(mCurrentTarget).rot, 0, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
                             changeMode(Modes.STOP);
-                            sendCommand(Commands.BEEPLOWHI);
+                            //sendCommand(Commands.BEEPLOWHI);
 
                             if(mTargetList.get(mCurrentTarget).name.equals("Target")){
                                 mMainAct.dump("At Final Target");
                                 mMainAct.speak("engaging final target");
+                                engageTarget();
                             }
                         }
                         return;//don't do anything else
 
                     }else{ // more targets to go
                         mMainAct.dump("Switched to Target " + mCurrentTarget);
-                        sendCommand(Commands.BEEPLOWHI);
+                        //sendCommand(Commands.BEEPLOWHI);
                         mCurrentTarget++;
                         mOnTarget=false;
                         mOnTargetRot=false;
-                        mMainAct.speak("going to next target");
+                        //mMainAct.speak("going to next target");
                         return;
                     }
                 }else{// not on target
@@ -494,8 +648,9 @@ public class Robot{
             }
 
             //at this point maybe we got close enough to the target, set the flag and return
-            if (dist < mSettings.threshDistSmall) { //on target stop (next update will start going to next target)
-                //sendCommand(Commands.STOP);
+            if (dist < mSettings.threshDistSmall ||
+                    (mCurrentTarget != mTargetList.size() - 1 && dist < mSettings.threshDistBig)) { //on target stop (next update will start going to next target)
+                sendCommand(Commands.STOP);
                 mOnTarget=true;
                 mOnTargetRot=false;
                 return;
@@ -515,8 +670,8 @@ public class Robot{
     //changeDirection()
     // this one accepts a target direction and a command to run
     // after the target direction is aquired, forward or stop I guess
-    private static final double TURNINGAPERDTHRESH = Math.PI / 4;
-    private static final double FORWAPERDTHRESH = Math.PI;
+
+    //changed all the spins to halfturns so now there is lots of repeats and unnecessary redundancy
 
     private void changeDirection(double targetDir, double dist, Commands afterCommand) {
 
@@ -529,9 +684,13 @@ public class Robot{
 
         switch(mMovingState){
             case STOP:
-                if (mag > mSettings.threshAngleBig) {//need to change
+                if (mag > mSettings.threshAngleBig) {//need to change direction
                     mOnTargetRot = false;
-                    sendCommand(needToTurnLeft ? Commands.SPINLEFT : Commands.SPINRIGHT);
+                    if (dist == 0 || mag > Math.PI / 2)
+                        sendCommand(needToTurnLeft ? Commands.SPINLEFT : Commands.SPINRIGHT);
+                    else
+                        sendCommand(needToTurnLeft ? Commands.HALFLEFT : Commands.HALFRIGHT);
+
 
                 } else {
                     mOnTargetRot = true;
@@ -543,10 +702,10 @@ public class Robot{
                 if (mag > mSettings.threshAngleSmall) {//need to change
                     mOnTargetRot=false;
 
-                    if (mag < mSettings.threshAngleBig)
-                        sendCommand(needToTurnLeft ? Commands.HALFLEFT : Commands.HALFRIGHT);
-                    else
+                    if (dist == 0)
                         sendCommand(needToTurnLeft ? Commands.SPINLEFT : Commands.SPINRIGHT);
+                    else
+                        sendCommand(needToTurnLeft ? Commands.HALFLEFT : Commands.HALFRIGHT);
                 }else{
                     mOnTargetRot=true;
                     sendCommand(afterCommand);
@@ -577,7 +736,7 @@ public class Robot{
                 }
 
                 if (mag > mSettings.threshAngleBig) {
-                    sendCommand(Commands.SPINRIGHT);
+                    sendCommand(Commands.HALFRIGHT);
                 }
                 break;
 
@@ -603,62 +762,15 @@ public class Robot{
                 }
 
                 if (mag > mSettings.threshAngleBig) {
-                    sendCommand(Commands.SPINLEFT);
+                    sendCommand(Commands.HALFLEFT);
                 }
                 break;
 
         }
     }
 
-
-    //////////////////////////////////////////////////////////////////////////////////////////////// unused "Search" section, in theory what to do if localization lost
-    ///Search for Localization
-    // in theory go in bigger and bigger  circles to get localized
-    // not really working yet... works a bit
-    static long gTriggerTime;
-    static int gSearchMode;
-    static double gRadius;
-    static int gCircleMode;
-
-    private void searchForLocalization(boolean reset){
-        if(reset){
-            gSearchMode=0;
-            gRadius=1;
-            gTriggerTime=0;
-            gCircleMode=0;
-            return;
-        }
-
-        long curTime=System.currentTimeMillis();
-
-        if(curTime>gTriggerTime){
-            switch(gSearchMode){
-                case 0:
-                    sendCommand(Commands.SPINRIGHT);
-                    gSearchMode=1;
-                    gTriggerTime=curTime + 3000;
-                    break;
-                case 1:
-                    sendCommand(Commands.SPINLEFT);
-                    gSearchMode=2;
-                    gTriggerTime=curTime + 3000;
-                    break;
-                case 2:
-                    switch(gCircleMode){
-                        case 0:
-                            sendCommand(Commands.FORWARD);
-                            gTriggerTime=curTime + 1000 + (int)(gRadius*1000);
-                            gCircleMode=1;
-                            break;
-                        case 1:
-                            sendCommand(Commands.SPINLEFT);
-                            gTriggerTime=curTime + (int)(1000/(gRadius));
-                            gCircleMode=0;
-                            gRadius*=1.5;
-                            break;
-                    }
-                    break;
-            }
-        }
+    float ptDist(PointF a, PointF b) {
+        return new PointF(a.x - b.x, a.y - b.y).length();
     }
+
 }

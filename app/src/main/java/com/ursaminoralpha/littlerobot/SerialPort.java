@@ -24,8 +24,6 @@ public class SerialPort{
     private UsbManager mUsbManager;
     public UsbSerialPort mPort;
 
-    SerialInputOutputManager mSerialManager;
-    ExecutorService mExec =Executors.newSingleThreadExecutor();
 
     SerialPort(MainActivity mainAct){
         mMainAct=mainAct;
@@ -41,7 +39,6 @@ public class SerialPort{
     }
 
     public void close(){
-        stopMan();
         if(mPort!=null){
             try{mPort.close();
             } catch(IOException e){}
@@ -53,6 +50,8 @@ public class SerialPort{
     public boolean isOpen(){
         return mPort!=null;
     }
+
+
     public int send(String data,int timeout){
         if(mPort==null)
             return 0;
@@ -113,7 +112,6 @@ public class SerialPort{
                 result.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
                 mMainAct.setStatusSerial(true,true);
                 mPort=result;
-                startMan();
             } catch(IOException e){
                 try{
                     result.close();
@@ -124,32 +122,8 @@ public class SerialPort{
         }
     }
 
-    //this is only for getting data from robot
-    private final SerialInputOutputManager.Listener mListener =
-            new SerialInputOutputManager.Listener() {
-                @Override
-                public void onRunError(Exception e) {
-                    stopMan();
-                }
-                @Override
-                public void onNewData(final byte[] data) {
-                    mMainAct.dump("  >"+new String(data));
-                }
-            };
 
-    private void startMan() {
-        if (mPort != null) {
-            mSerialManager = new SerialInputOutputManager(mPort, mListener);
-            mExec.submit(mSerialManager);
-        }
-    }
 
-    private void stopMan() {
-        if (mSerialManager != null) {
-            mSerialManager.stop();
-            mSerialManager = null;
-        }
-    }
 
     public final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() { //Broadcast Receiver to automatically start and stop the Serial connection.
         @Override
@@ -157,7 +131,7 @@ public class SerialPort{
             if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
                 open();
             } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_DETACHED)) {
-                close();
+                //close();
             }
         }
     };

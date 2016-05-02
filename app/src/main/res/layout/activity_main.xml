@@ -153,21 +153,45 @@
             android:layout_alignLeft="@+id/buttonReverse"
             android:text="   Stop    " />
 
+
+        <LinearLayout
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <Button
+                android:id="@+id/buttonDepthOn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="onClick"
+                android:text="Depth On" />
+
+            <Button
+                android:id="@+id/buttonDepthOff"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="onClick"
+                android:text="Depth Off" />
+
+        </LinearLayout>
+
+
         <Button
             android:id="@+id/buttonCountDown"
             android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
-            android:layout_above="@+id/buttonStopEverything"
+            android:layout_above="@+id/buttonListen"
             android:layout_alignParentRight="true"
-            android:text="GO" />
+            android:text="Go To Location" />
 
         <Button
-            android:id="@+id/buttonStopEverything"
+            android:id="@+id/buttonListen"
             android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
-            android:layout_above="@+id/buttonAddTarget"
+            android:layout_above="@+id/buttonAddLocation"
             android:layout_alignParentRight="true"
             android:layout_marginBottom="50dp"
             android:text="Stop All" />
@@ -200,22 +224,22 @@
             android:text="Close" />
 
         <Button
-            android:id="@+id/buttonAddTarget"
+            android:id="@+id/buttonAddLocation"
             android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
-            android:layout_above="@+id/buttonResetTargets"
+            android:layout_above="@+id/buttonClearAll"
             android:layout_alignParentRight="true"
-            android:text="Add Target" />
+            android:text="Add Location" />
 
         <Button
-            android:id="@+id/buttonResetTargets"
+            android:id="@+id/buttonClearAll"
             android:onClick="onClick"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
             android:layout_above="@+id/buttonClose"
             android:layout_alignParentRight="true"
-            android:text="Clear Targets" />
+            android:text="Clear All" />
 
         <Button
             android:id="@+id/buttonLearnADF"

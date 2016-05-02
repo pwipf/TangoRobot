@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TangoReal(this, false, true, mCurrentUUID, mRobot);
+        mTango = new TangoReal(this, false, false, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
@@ -183,8 +183,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         mRobot.sendManualCommand(Commands.BEEPLOW);
         switch(view.getId()){
             case R.id.buttonForward:
-                recognizeSpeech("hola");
-                // mRobot.sendManualCommand(Commands.FORWARD);
+                mRobot.sendManualCommand(Commands.FORWARD);
                 break;
             case R.id.buttonLeft:
                 mRobot.sendManualCommand(Commands.SPINLEFT);
@@ -197,17 +196,18 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 break;
             case R.id.buttonStop:
                 mRobot.sendManualCommand(Commands.STOP);
-                mRobot.addObstacle(.1f,mRobot.mSettings.obstacleHeight*2);
-                mRobot.addObstacle(.9f,mRobot.mSettings.obstacleHeight*2);
                 break;
             case R.id.buttonCountDown:
                 actionGo();
                 break;
-            case R.id.buttonStopEverything:
-                actionStopEverything();
+            case R.id.buttonListen:
+                speak("Where to?");
+                recognizeSpeech("Where to?");
                 break;
-            case R.id.buttonResetTargets:
-                actionClearTargets();
+            case R.id.buttonClearAll:
+                mRobot.stopSavingPath();
+                mRobot.clearTargets();
+                mRobot.clearObstacles();
                 break;
 //            case R.id.buttonSettings:
 //                Intent i = new Intent(this, SettingsActivity.class);
@@ -222,8 +222,9 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 //                    mRemoteServer.serverStart();
 //                }
 //                break;
-            case R.id.buttonAddTarget:
-                actionAddTarget();
+            case R.id.buttonAddLocation:
+                mLocationUse = "Add";
+                new SetLocationNameDialog().show(getFragmentManager(), "LocationNameDialog");
                 break;
             case R.id.buttonLearnADF:
                 actionLearnADF();
@@ -233,6 +234,12 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 break;
             case R.id.buttonClose:
                 finish();
+                break;
+            case R.id.buttonDepthOn:
+                actionTangoDepth(true);
+                break;
+            case R.id.buttonDepthOff:
+                actionTangoDepth(false);
                 break;
         }
     }
@@ -306,6 +313,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         }
     }
     public void actionSaveLocation(String name){
+        mRobot.startSavingPath();
         mRobot.saveLocation(name);
     }
 
@@ -482,7 +490,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     public void onLocationNameOk(String name){
         switch(mLocationUse){
             case "Add":
-                mRobot.addTarget(name);
+                actionSaveLocation(name);
                 break;
             case "Go":
                 actionGoToLocation(name);
@@ -551,19 +559,31 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 String full="";
                 for(String s:result){
                     full+=" "+s;
+
+                    for (int i = 0; i < mRobot.pathNames.size(); i++) {
+                        if (mRobot.pathNames.get(i).equalsIgnoreCase(s)) {
+                            mRobot.goToLocation(i);
+                            speak("Going to " + s);
+
+                            return;
+                        }
+                    }
+                    speak("Unrecognized Location");
+
                 }
                 dump(full);
             }
         }
     }
-    public void recognizeSpeech(String p){
+
+    public void recognizeSpeech(final String p) {
         new AsyncTask<Void, Void, String>(){
             @Override
             protected String doInBackground(Void... params) {
                 Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "What is your favorite Color");
+                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, p);
                 try {
                     startActivityForResult(intent, 2);
 
@@ -653,10 +673,10 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 mRobot.stopSavingPath();
                 break;
             case "Trace Path Forward":
-                mRobot.tracePathForward();
+                mRobot.tracePathForward(0);
                 break;
             case "Trace Path Reverse":
-                mRobot.tracePathReverse();
+                mRobot.tracePathReverse(0);
                 break;
             case "Clear All":
                 mRobot.stopSavingPath();
@@ -669,6 +689,16 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 break;
             case "Depth Off":
                 actionTangoDepth(false);
+                break;
+            case "Listen":
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        speak("Where do you want to go?");
+                        recognizeSpeech("Where to?");
+                    }
+                });
+
                 break;
 
             default:
