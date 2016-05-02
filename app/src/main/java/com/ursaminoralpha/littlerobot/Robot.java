@@ -591,13 +591,14 @@ public class Robot{
     //logic to go around obstacle
 
     private void goAround(){
-        float offset=1.0f;
+        float offset=0.6f;
+        float dist=1.0f;
         float rot1=(float)mYRot;
         PointF p1 =extendUZ(new PointF(offset,0),rot1,mCurTranslation.toPointFXY());
         Target t1= new Target(new Vec3(p1.x,p1.y,0),rot1,"new1");
 
         float rot2=rot1+(float)Math.PI/2;
-        PointF p2= extendUZ(new PointF(-offset,0),rot2,p1);
+        PointF p2= extendUZ(new PointF(-dist,0),rot2,p1);
         Target t2= new Target(new Vec3(p2.x,p2.y,0),rot2,"new2");
 
         float rot3=rot2-(float)Math.PI/2;
