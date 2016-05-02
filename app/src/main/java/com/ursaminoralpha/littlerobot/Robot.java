@@ -42,8 +42,12 @@ public class Robot{
     private PointF[] mObstacleList = new PointF[NOBST];
     private int obstListIndex = 0;
 
-    private long mEngageTime;
+    private long mEngageTime=0;
     private static final long mEngageGoTime = 2000;
+
+    private long mWaitStartTime=0;
+    private static final long WAITTIME= 4000;
+    private boolean mAskedForPermission=false;
 
     private Object sendLock = new Object();
     private PointF mPtInFront = new PointF(0, 0);
@@ -163,7 +167,7 @@ public class Robot{
 
     public enum Modes{
         STOP("STOP"), GOTOTARGET("GOTOTARGET"), SEARCHLOC("SEARCH"), ENGAGE("ENGAGE"),
-        DISENGAGE("DISENGAGE"), WAITFOROBST("WAITFOROBST");
+        DISENGAGE("DISENGAGE"), WAITFOROBST("WAITFOROBST"), GOAROUND("GOAROUND");
         String name;
 
         Modes(String s){
@@ -242,7 +246,15 @@ public class Robot{
                 break;
             case WAITFOROBST:
                 sendCommand(Commands.STOP);
+                mWaitStartTime=System.currentTimeMillis();
                 mMainAct.speak("Something in the way");
+                mAskedForPermission = false;
+                break;
+            case GOAROUND:
+
+                mMainAct.speak("Going around, wish me luck");
+
+
                 break;
             case STOP:
                 sendManualCommand(Commands.STOP);
@@ -527,7 +539,6 @@ public class Robot{
                 break;
 
             case WAITFOROBST:
-
                 int count = 0;
                 for (PointF p : mObstacleList) {
                     if (p.x == 0 && p.y == 0)
@@ -537,27 +548,25 @@ public class Robot{
                 if (count < 1) {
                     mMainAct.speak("Path clear");
                     changeMode(Modes.GOTOTARGET);
+                    return;
                 }
 
+                if(!mAskedForPermission && System.currentTimeMillis() >= mWaitStartTime + WAITTIME){
+                    mAskedForPermission=true;
+                    mMainAct.speak("What shall I do?");
+                    mMainAct.recognizeSpeech("What to do?", "GoAround");
+                    return;
+                }
+                break;
+
+            case GOAROUND:
+                goAround();
                 break;
 
             case STOP:
-                switch (mMovingState) {
-                    case FORWARD:
-                        int npts = 0;
-                        for (PointF p : mObstacleList) {
-                            if (p.x == 0 && p.y == 0)
-                                continue;
-                            npts++;
-                        }
-                        if (npts > 5)
-                            changeMode(Modes.WAITFOROBST);
-                        break;
-                }
                 break;
 
             case SEARCHLOC:
-
                 break;
 
             case ENGAGE:
@@ -577,6 +586,39 @@ public class Robot{
 
     private void engageTarget() {
         changeMode(Modes.ENGAGE);
+    }
+
+    //logic to go around obstacle
+
+    private void goAround(){
+        float offset=1.0f;
+        float rot1=(float)mYRot;
+        PointF p1 =extendUZ(new PointF(offset,0),rot1,mCurTranslation.toPointFXY());
+        Target t1= new Target(new Vec3(p1.x,p1.y,0),rot1,"new1");
+
+        float rot2=rot1+(float)Math.PI/2;
+        PointF p2= extendUZ(new PointF(-offset,0),rot2,p1);
+        Target t2= new Target(new Vec3(p2.x,p2.y,0),rot2,"new2");
+
+        float rot3=rot2-(float)Math.PI/2;
+        PointF p3 = extendUZ(new PointF(offset,0),rot3,p2);
+        Target t3= new Target(new Vec3(p3.x,p3.y,0),rot1,"new1");
+
+        mTargetList.add(mCurrentTarget+1,t3);
+        mMainAct.addTarget(p1,"new1");
+        mMainAct.addTarget(p2,"new2");
+        mMainAct.addTarget(p3,"new3");
+        mTargetList.add(mCurrentTarget+1,t2);
+        mTargetList.add(mCurrentTarget+1,t1);
+        mTargetList.remove(mCurrentTarget);
+
+        mMainAct.clearTargets();
+
+        for(int i=0;i<mTargetList.size();i++){
+            mMainAct.addTarget(mTargetList.get(mCurrentTarget+i).pos.toPointFXY(),mTargetList.get(mCurrentTarget+i).name);
+        }
+
+        changeMode(Modes.GOTOTARGET);
     }
 
     // logic to drive toward target

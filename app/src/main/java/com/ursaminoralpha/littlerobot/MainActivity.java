@@ -56,6 +56,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     MapView1stPerson mMapView;
     TangoReal mTango;
 
+    private String mRecoginzeUse="";
+
     @Override
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
@@ -202,7 +204,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 break;
             case R.id.buttonListen:
                 speak("Where to?");
-                recognizeSpeech("Where to?");
+                recognizeSpeech("Where to?", "GoToLocation");
                 break;
             case R.id.buttonClearAll:
                 mRobot.stopSavingPath();
@@ -560,23 +562,41 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 for(String s:result){
                     full+=" "+s;
 
-                    for (int i = 0; i < mRobot.pathNames.size(); i++) {
-                        if (mRobot.pathNames.get(i).equalsIgnoreCase(s)) {
-                            mRobot.goToLocation(i);
-                            speak("Going to " + s);
+                    switch(mRecoginzeUse){
+                        case "GoToLocation":
+                            for(int i=0; i<mRobot.pathNames.size(); i++){
+                                if(mRobot.pathNames.get(i).equalsIgnoreCase(s)){
+                                    mRobot.goToLocation(i);
+                                    speak("Going to " + s);
 
-                            return;
-                        }
+                                    return;
+                                }
+                            }
+                            break;
+
+
+                        case "GoAround":
+                            if(s.equalsIgnoreCase("Go") || s.equalsIgnoreCase("Go Around") || full.equalsIgnoreCase("Go Around")){
+                                mRobot.changeMode(Robot.Modes.GOAROUND);
+                                return;
+                            }
+                            break;
                     }
-                    speak("Unrecognized Location");
 
                 }
+                speak("No Comprendo");
                 dump(full);
             }
         }
     }
 
-    public void recognizeSpeech(final String p) {
+    public void recognizeSpeech(final String p, final String use) {
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                mRecoginzeUse = use;
+            }
+        });
         new AsyncTask<Void, Void, String>(){
             @Override
             protected String doInBackground(Void... params) {
@@ -695,7 +715,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                     @Override
                     public void run() {
                         speak("Where do you want to go?");
-                        recognizeSpeech("Where to?");
+                        recognizeSpeech("Where to?", "GoToLocation");
                     }
                 });
 
