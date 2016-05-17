@@ -6,12 +6,10 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.graphics.PointF;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
@@ -20,7 +18,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -54,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
     SerialPort mSerialPort;
     Robot mRobot;
     MapView1stPerson mMapView;
-    TangoReal mTango;
+    TangoFake mTango;
 
     private String mRecoginzeUse="";
 
@@ -104,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
         //Tango
         //give tango initial learning mode, adf, and a robot to send updates to
-        mTango = new TangoReal(this, false, false, mCurrentUUID, mRobot);
+        mTango = new TangoFake(this, false, false, mCurrentUUID, mRobot);
 
 
         ttobj=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
@@ -132,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         sentToRemoteString("Server Pausing, will need to reconnect remote");
         mRemoteServer.stop();
         mTango.stop();
-        mRobot.changeMode(Robot.Modes.STOP); //better stop the robot!
+        mRobot.changeMode(Robot.Modes.MANUAL); //better stop the robot!
     }
 
     @Override
@@ -239,9 +236,11 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 break;
             case R.id.buttonDepthOn:
                 actionTangoDepth(true);
+                sentToRemoteString("Depth On");
                 break;
             case R.id.buttonDepthOff:
                 actionTangoDepth(false);
+                sentToRemoteString("Depth Off");
                 break;
         }
     }
@@ -298,7 +297,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     public void actionSaveADF(){
         if(mTango.isLearningMode()){
-            mRobot.changeMode(Robot.Modes.STOP);
+            mRobot.changeMode(Robot.Modes.MANUAL);
             showSetADFNameDialog();
         }else{
             dump("Not Learning");
@@ -307,7 +306,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
 
     public void actionSaveADFName(String name){
         if(mTango.isLearningMode()){
-            mRobot.changeMode(Robot.Modes.STOP);
+            mRobot.changeMode(Robot.Modes.MANUAL);
             mRobot.stopSavingPath();
             mTango.saveADF(name);
         }else{
@@ -465,7 +464,7 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
         runOnUiThread(new Runnable(){
             @Override
             public void run(){
-                mRobot.changeMode(Robot.Modes.STOP);
+                mRobot.changeMode(Robot.Modes.MANUAL);
             }
         });
 
@@ -653,8 +652,8 @@ public class MainActivity extends AppCompatActivity implements SetADFNameDialog.
                 actionCommand(Robot.Commands.REVERSE);
                 break;
             case "Stop":
-                //actionCommand(Robot.Commands.STOP);
-                mRobot.changeMode(Robot.Modes.STOP);
+                //actionCommand(Robot.Commands.MANUAL);
+                mRobot.changeMode(Robot.Modes.MANUAL);
                 break;
             case "Right":
                 actionCommand(Robot.Commands.SPINRIGHT);

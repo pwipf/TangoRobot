@@ -30,8 +30,8 @@ public class StatusFragment extends Fragment{
         REMOTEPORT("RemotePort","6242",GREEN,ORANGE),
         REMOTERUN("RemoteRunning","NO",RED,GREEN),
         REMOTECON("RemoteConnected","0",RED,GREEN),
-        ROBOMODE("RobotMode","STOP",GREEN,ORANGE),
-        ROBOLASTCOM("RobotLastCom","STOP",GREEN,ORANGE);
+        ROBOMODE("RobotMode","MANUAL",GREEN,ORANGE),
+        ROBOLASTCOM("RobotLastCom","MANUAL",GREEN,ORANGE);
         String string;
         String compare;
         int color1,color2;
@@ -45,6 +45,10 @@ public class StatusFragment extends Fragment{
     //constructor
 
     private static void setItem(StatusItem item, String string){
+        if(mViews[item.ordinal()]==null){
+            Log.i("STATUSFRAGMENT","setItem "+item+" view still null");
+            return;
+        }
         mViews[item.ordinal()].setTextColor(string.equals(item.compare)? item.color1 : item.color2);
         mViews[item.ordinal()].setText(string);
         item.currentString=string;

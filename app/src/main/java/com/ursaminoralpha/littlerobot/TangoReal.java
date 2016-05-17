@@ -512,6 +512,7 @@ public class TangoReal{
         if(on == mDepthMode)
             return;
         mDepthMode = on;
+        mMainAct.mMapView.mDepthOn=on;
         restartTango(mLearningMode, mDepthMode, mLastUUID);
     }
 

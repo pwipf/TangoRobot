@@ -3,7 +3,6 @@ package com.ursaminoralpha.littlerobot;
 
 import android.graphics.Matrix;
 import android.graphics.PointF;
-import android.os.SystemClock;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -14,7 +13,7 @@ public class Robot{
 
     //////////////////////////////////////////////////////////////////////////////////////////////// Member variables
     private Commands mMovingState=Commands.STOP;
-    private Modes mMode=Modes.STOP;
+    private Modes mMode=Modes.MANUAL;
     MainActivity mMainAct;
     private ArrayList<Target> mTargetList=new ArrayList<>();
     private static int mCurrentTarget=0;
@@ -166,7 +165,7 @@ public class Robot{
     }
 
     public enum Modes{
-        STOP("STOP"), GOTOTARGET("GOTOTARGET"), SEARCHLOC("SEARCH"), ENGAGE("ENGAGE"),
+        MANUAL("MANUAL"), GOTOTARGET("GOTOTARGET"), SEARCHLOC("SEARCH"), ENGAGE("ENGAGE"),
         DISENGAGE("DISENGAGE"), WAITFOROBST("WAITFOROBST"), GOAROUND("GOAROUND");
         String name;
 
@@ -202,6 +201,7 @@ public class Robot{
         for (int i = 0; i < NOBST; i++) {
             mObstacleList[i] = new PointF(0, 0);
         }
+
     }
 
 
@@ -212,6 +212,7 @@ public class Robot{
         mCurTranslation=translation;
         mYRot=rotation;
         mMainAct.setRobotMap(translation, rotation);
+        mMainAct.setStatusPoseData(translation, (float)rotation);
         doYourStuff();
     }
 
@@ -226,7 +227,7 @@ public class Robot{
 
     public void changeMode(final Modes m){
         switch(mMode){//current mode
-            case STOP:
+            case MANUAL:
                 break;
             case GOTOTARGET:
                 break;
@@ -256,7 +257,7 @@ public class Robot{
 
 
                 break;
-            case STOP:
+            case MANUAL:
                 sendManualCommand(Commands.STOP);
                 break;
             case GOTOTARGET:
@@ -296,7 +297,7 @@ public class Robot{
     public void clearTargets(){
         mCurrentTarget=0;
         mTargetList.clear();
-        changeMode(Modes.STOP);
+        changeMode(Modes.MANUAL);
         mMainAct.clearTargets();
     }
 
@@ -413,7 +414,7 @@ public class Robot{
         }
 
         /// TODO REMOVE
-//        if(c == Commands.FORWARD || c == Commands.STOP||c==Commands.REVERSE
+//        if(c == Commands.FORWARD || c == Commands.MANUAL||c==Commands.REVERSE
 //                || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
 //                || c == Commands.HALFRIGHT || c == Commands.HALFLEFT){
 //            mMovingState=c;
@@ -521,7 +522,11 @@ public class Robot{
             }
         }else{
             mMainAct.dump("Tried to send " + c);
-            //mMainAct.setStatusRobotState("~"+mMovingState);
+            if (c == Commands.FORWARD || c == Commands.STOP || c == Commands.REVERSE
+                    || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
+                    || c == Commands.HALFRIGHT || c == Commands.HALFLEFT) {
+                mMainAct.setStatusRobotState("~"+c);
+            }
         }
     }
 
@@ -563,7 +568,7 @@ public class Robot{
                 goAround();
                 break;
 
-            case STOP:
+            case MANUAL:
                 break;
 
             case SEARCHLOC:
@@ -578,7 +583,7 @@ public class Robot{
             case DISENGAGE:
                 if (System.currentTimeMillis() > mEngageTime + mEngageGoTime) {
                     sendCommand(Commands.STOP);
-                    changeMode(Modes.STOP);
+                    changeMode(Modes.MANUAL);
                 }
                 break;
         }
@@ -589,7 +594,7 @@ public class Robot{
     }
 
     //logic to go around obstacle
-
+    // TODO:  tried this once but crashed, never was able to get error or try again
     private void goAround(){
         float offset=0.6f;
         float dist=1.0f;
@@ -664,7 +669,7 @@ public class Robot{
                         if(mUseTargetRotation && !mOnTargetRot)
                             changeDirection(mTargetList.get(mCurrentTarget).rot, 0, Commands.STOP);
                         if(mOnTargetRot || !mUseTargetRotation){
-                            changeMode(Modes.STOP);
+                            changeMode(Modes.MANUAL);
                             //sendCommand(Commands.BEEPLOWHI);
 
                             if(mTargetList.get(mCurrentTarget).name.equals("Target")){

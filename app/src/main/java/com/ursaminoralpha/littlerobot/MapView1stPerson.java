@@ -64,6 +64,7 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
     PointF[] mDepthPts=new PointF[NDEPTHPTS];
     float[] mDepthValue = new float[NDEPTHPTS];
     int mDepthIndex=0;
+    boolean mDepthOn=false;
 
 
     static final int NOBSTPTS = 30;
@@ -90,7 +91,8 @@ public class MapView1stPerson extends View implements ScaleGestureDetector.OnSca
         drawTargets(canvas);
 
         canvas.drawRect(1, 1, mSize.x, mSize.y - 1, mBlackPaint);
-        drawDepthPts(canvas);
+        if(mDepthOn)
+            drawDepthPts(canvas);
         drawObstPts(canvas);
     }
 

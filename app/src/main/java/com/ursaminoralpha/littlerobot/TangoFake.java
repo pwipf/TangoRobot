@@ -31,6 +31,8 @@ public class TangoFake implements SensorEventListener{
     private static String mLastADFFilename;
     private Robot mRobot;
 
+    public static boolean mDepthMode;
+
     SensorManager mSensorManager;
     private final Sensor mAccel,mRotSensor;
 
@@ -109,11 +111,15 @@ public class TangoFake implements SensorEventListener{
         }
         if(newT){
             rot=(rot + .01);
+            //if(rot>=Math.PI)
+            //    rot=-Math.PI;
+            //rot=makeAngleInProperRange(rot + Math.PI/2);
             //mMainAct.setStatusPoseData(pos, (float)rot);
-            mRobot.setPose(pos, rot);
+            mRobot.setPose(pos, makeAngleInProperRange(rot + Math.PI/2));
             //mMainAct.sendToRemoteVec3Rot(pos, (float)rot);
-            for(int i=1; i<10; i++){
-                //for(int j=1; j<10; j++){
+            if(mDepthMode){
+                for(int i=1; i<10; i++){
+                    //for(int j=1; j<10; j++){
                     //float v=j*.1f;
                     float u=i*.1f;
                     //vec = (getDepthAtPosition(u, v, mLatestTimeStamp));
@@ -121,8 +127,9 @@ public class TangoFake implements SensorEventListener{
                     //if (vec != null)
                     //    mMainAct.sendToRemoteDepth(u, v, (float) vec.z);
                     //else
-                    mMainAct.sendToRemoteDepth(u, 0, mRobot.mSettings.obstacleHeight*2);
-                //}
+                    mMainAct.sendToRemoteDepth(u - .5f, 0, mRobot.mSettings.obstacleHeight*2);
+                    //}
+                }
             }
             newT=false;
             //newR=false;
@@ -159,12 +166,12 @@ public class TangoFake implements SensorEventListener{
 
     public void startTangoWithADF(boolean learningMode, String adfFileName){
         if(!mIsTangoServiceConnected && mPermissionsReady){
-            startTangoWithAdfUUID(learningMode,getUUIDFromADFFileName(adfFileName));
+            startTangoWithAdfUUID(learningMode,mDepthMode,getUUIDFromADFFileName(adfFileName));
         }
     }
 
     public void start(){
-        startTangoWithAdfUUID(mLearningMode,mLastUUID);
+        startTangoWithAdfUUID(mLearningMode,mDepthMode,mLastUUID);
         mMainAct.dump("Starting with learning: "+mLearningMode);
         mMainAct.dump("UUID: "+mLastUUID);
 
@@ -172,7 +179,7 @@ public class TangoFake implements SensorEventListener{
 
 
     //This starts the tango service
-    private void startTangoWithAdfUUID(boolean learningMode, String adfUUID){
+    private void startTangoWithAdfUUID(boolean learningMode, boolean depthMode, String adfUUID){
         if(!mIsTangoServiceConnected && mPermissionsReady){
             mSensorManager.registerListener(this, mAccel, SensorManager.SENSOR_DELAY_GAME );
             mSensorManager.registerListener(this, mRotSensor, SensorManager.SENSOR_DELAY_NORMAL);
@@ -191,6 +198,7 @@ public class TangoFake implements SensorEventListener{
             mLastUUID=adfUUID;
             mCurrentADFName=tempName;
             mLearningMode=learningMode;
+            mDepthMode=depthMode;
             mLocalized = false;
             mMainAct.setLearningStatus(learningMode);
         }
@@ -230,9 +238,9 @@ public class TangoFake implements SensorEventListener{
         }
     }
 
-    void restartTango(boolean learningMode, String adfUUID){
+    void restartTango(boolean learningMode, boolean depthMode, String adfUUID){
         stop();
-        startTangoWithAdfUUID(learningMode,adfUUID);
+        startTangoWithAdfUUID(learningMode, depthMode, adfUUID);
     }
 
 
@@ -270,14 +278,14 @@ public class TangoFake implements SensorEventListener{
                     rot=makeAngleInProperRange(rot + Math.PI/2);
 
                     Vec3 translation=new Vec3(1,.5f,1);
-                    mMainAct.setStatusPoseData(translation,(float)rot);
+                    //mMainAct.setStatusPoseData(translation,(float)rot);
                      //update robot localization status if changed
                     if(mLocalized != mRobot.isLocalized()){
                         mRobot.setLocalized(mLocalized);
                     }
 
                     mRobot.setPose(translation,rot);
-                    mMainAct.sendToRemoteVec3Rot(translation,(float)rot);
+                    //mMainAct.sendToRemoteVec3Rot(translation,(float)rot);
 
             }
 
@@ -306,7 +314,7 @@ public class TangoFake implements SensorEventListener{
                         mMainAct.dump("Saved ADF as: " + fileName);
                     }
                     mMainAct.dump("Finished Saving, restarting...");
-                    restartTango(false, uuid);
+                    restartTango(false,mDepthMode, uuid);
                 }
             }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
@@ -314,16 +322,17 @@ public class TangoFake implements SensorEventListener{
 
 
     public void startLearnADFmode(String loadADFuuid){
-        restartTango(true,loadADFuuid);
+        restartTango(true,mDepthMode,loadADFuuid);
     }
 
     public void stopLearnADFmode(){
-        restartTango(false,mLastUUID);
+        restartTango(false,mDepthMode,mLastUUID);
     }
     public void setDepthMode(boolean on){
-//        if(on == mDepthMode)
-//            return;
-//        restartTango(mLearningMode,on,mLastUUID);
+        if(on == mDepthMode)
+            return;
+        mMainAct.mMapView.mDepthOn=on;
+        restartTango(mLearningMode,on,mLastUUID);
     }
 
     // getters
