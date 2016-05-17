@@ -20,8 +20,19 @@ Features:
 - Go around and obstacle if told to.
 - "Engage" target (simple action to simulate doing some operation upon reaching the target position)
 
-This project really requires a Google Tango tablet, but with a slight modification can be tried on any android tablet, it only requires changing the TangoReal object in mainActivity to a TangoFake object, and then it will function in a sort of test mode on any tablet.  It works well to run this project on a tablet and run the TangoRobotRemote app on the android studio emulator.
+Missing:
+- The waypoints/paths are not able to be saved or loaded between separate uses of the app.
+- There is no interface to tell it which ADF file to use, it just loads the last ADF that was recorded by this app (this is saved between uses).
+
+This project is meant to run on a Google Tango tablet, but with a slight modification can be tested on any android tablet, it only requires changing the TangoReal object in mainActivity.java to a TangoFake object, and then it will function in a sort of test mode on any tablet.  It works well to run this project on a tablet and run the TangoRobotRemote app on the android studio emulator.
 
 Here is a screenshot of the remote, the screen on the Tango tablet is very similar, but has a first-person view, where the robot always stays in the middle facing forward, and the view rotates and moves about the robot.
 
 ![screen](/RemoteScreen.png?raw=true "screenshot")
+
+The status and log are on the left.  
+The view is a real-time 2D overhead view of the environment, robot position and rotation, and waypoints.  
+The robot is the strangely shaped triangular object, the black lines are the "wheels".  
+The red and blue arrows show the x and z (or y if you prefer) world axes.  The arrow length is 1 meter.  
+The grid is 1 foot squares.  
+The green circles are in front of the robot and represent an indication of the current depth data being returned.  
