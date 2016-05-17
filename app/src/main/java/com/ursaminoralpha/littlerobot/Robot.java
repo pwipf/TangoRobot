@@ -514,7 +514,7 @@ public class Robot{
         //output an info message
         if(n>0){
             mMainAct.dump(c + " sent");
-            //mMainAct.setStatusRobotState(mMovingState+"");
+            mMainAct.setStatusRobotState(mMovingState+"");
             if (c == Commands.FORWARD || c == Commands.STOP || c == Commands.REVERSE
                     || c == Commands.SPINRIGHT || c == Commands.SPINLEFT
                     || c == Commands.HALFRIGHT || c == Commands.HALFLEFT) {
